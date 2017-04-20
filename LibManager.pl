@@ -292,7 +292,7 @@ sub lib_parse
 			$out_ts= mod_time($f_outpath) ;
 		    }
 		    if ( $in_ts > $out_ts || -d $f_inpath  ) { # if its newer, we'll want to transfer that. #
-			$f_inpath =~ s:[ ]:[\][ ]:gx;
+			#$f_inpath =~ s:[ ]:[\][ ]:gx;# add \ to any space in names. but why...
 			if ( -f $f_inpath){
 			    $work_list->{$_}='file';
 			} elsif( -d $f_inpath) {
@@ -306,7 +306,10 @@ sub lib_parse
 			    #print("Override type\n");
 			    $work_list->{$_}=$lib_template{$_};
 			}
-			print("Add $f_inpath <- ".$work_list->{$_}."\n");
+			if ( defined $work_list->{$_} ) {
+			    print("Add $f_inpath <- ".$work_list->{$_}."\n");
+			} else {
+			    confess ("work_list $_ not defined!"); }
 		    } else {
 			print("Ignore(time) $_\n");
 		    }
