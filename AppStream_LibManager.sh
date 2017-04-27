@@ -2,7 +2,7 @@
 # script to setup our appstream libs
 
 base_path=/Volumes/DataLibraries
-dest_path=/Volumes/l\$/AppStreamLibraries
+dest_path=/Volumes/DataLibraries/_AppStreamLibraries
 
 if [ ! -d $base_path -o ! -d $dest_path ]; then
     echo "Libraries not available!";
@@ -12,13 +12,15 @@ fi
 do_rat=0;
 
 do_brainstem=0;
-update_prod1_mouse=1;
+update_prod1_mouse=0;
 do_mouse=0;
 #choices="mouse rat human";
 choices="mouse rat human_brainstem";
-#choice="mouse";
+#choices="mouse";
+#choices="rat";
+#choices="human_brainstem";
 
-
+echo -n '' > cmd_list.txt
 which realpath;rpf=$?;
 if [ $rpf -eq 1 ] ; then
     echo "Setting up function realpath";
@@ -30,8 +32,8 @@ function index_update () {
     dirs=$1;
     match_pattern=$2;
     testmode=$3;
-    if [ "x_$testmode" != "x_1" ]; then
-	testmode=0;
+    if [ "x_$testmode" != "x_0" ]; then
+	testmode=1;
     fi
     found_paths="";
     for dir in $dirs;
@@ -57,7 +59,6 @@ function index_update () {
 	   #sed -i ".sed_bak" -e "s/^\(Path=.*\)$/#\1/g" $base_path/ExternalAtlases/mitra/lib.conf
 
 	   echo ./LibManager.pl ${dir}/lib.conf $ap/lib.conf >& 2 >> cmd_list.txt;
-
 	   echo sed -i ".sed_bak" -e "s/^\(Path=.*\)$/#\1/g" $ap/lib.conf >& 2 >> cmd_list.txt;
 	   if [ "x_$testmode" == "x_0" ]; then
 	       ./LibManager.pl ${dir}/lib.conf $ap/lib.conf >& 2 ; # do the work
@@ -73,8 +74,8 @@ function process_meta_index() {
 
     choice=$1;
     testmode=$2;
-    if [ "x_$testmode" != "x_1" ]; then
-	testmode=0;
+    if [ "x_$testmode" != "x_0" ]; then
+	testmode=1;
     fi
     echo DOING $choice;
     # first do an update of the source data from the source index. This should capture lib.conf(and probably only lib.conf) so they are consistent with one another.
@@ -88,10 +89,6 @@ function process_meta_index() {
     echo "Updating indexes for $choice_index";
     dirs=`ls -d $choice_index/*|grep -i ${choice}|grep -vE '/9.*' `; # get index dirs inside that datalibrary index
     data_paths=`index_update "$dirs" .+ $testmode`; # update the lib.conf in all data dirs based on the index file, comment out any path line in the data/lib.conf folder.
-    # echo "should have done"; # these comments are to compare to old data.
-    # echo "  $base_path/000Mouse_Brain/01Mouse/lib.conf $base_path/Brain/Mus_Musculus/mouse_chass_images/dti/lib.conf"
-    # echo "  $base_path/000Mouse_Brain/03Mouse/lib.conf $base_path/Brain/Mus_Musculus/whs_atlas/dti101/lib.conf"
-    # exit;
 
     ###
     # Update dest index 
@@ -149,16 +146,54 @@ function process_meta_index() {
     return;
 }
 
+function create_nhdr_lib () {
+    choice=$1
+    testmode=$2;
+    if [ "x_$testmode" != "x_0" ]; then
+	testmode=1;
+    fi
+    testmode=0;
+    #echo $choice
+    choice_index=`ls -d $base_path/*|grep -i ${choice}`;# get datalibrary index dir
+    bn=`basename $choice_index`; # get the folder name of the index.
+    cn=$( echo "$bn" | tr '[:upper:]' '[:lower:]' | sed -E 's/^([0-9]*)//g' ) ; # make whole thing lower case, cut off any numbers,
+    
+
+    choice_source="DataLibraries_${cn}"; # make the destination name eg, 000Mouse_Brain becomes DataLibraries_mouse_brain
+    choice_pile=${dest_path}"/${choice_source}";
+    choice_dest="DataLibraries_${cn}_nhdr"; # make the destination name eg, 000Mouse_Brain becomes DataLibraries_mouse_brain
+    dest_pile=${dest_path}"/${choice_dest}"; # get the full dest name
+
+
+    echo "Updating appstream pile";
+    echo "  $choice_pile -> $dest_pile"
+    # tree duplicaiton via rsync filtering images.
+    echo rsync --exclude "*nii*" --exclude "*nhdr" --exclude "*gz*" --exclude "*tif" --delete -axv $choice_pile $dest_pile >> cmd_list.txt
+    if [ "x_$testmode" == "x_0" ]; then
+	rsync --exclude "*nii*" --exclude "*nhdr" --exclude "*gz*" --exclude "*tif" --delete -axv $choice_pile/ $dest_pile
+    fi
+    #which mk_nhdr no this isnt what we want....
+    echo ./LibConv.pl $choice_pile $dest_pile >> cmd_list.txt
+    if [ "x_$testmode" == "x_0" ]; then
+	./LibConv.pl $choice_pile $dest_pile
+    fi
+    return;
+}
+
 function main () {
 
     #process_meta_index mouse 1;
     #process_meta_index rat 1;
     #process_meta_index human_brainstem 1;
-    
+    debugging=0;
     for choice in $choices;
     do echo "Starting $choice";
-       process_meta_index $choice;
-       
+       process_meta_index $choice $debugging ; # this calls process_index. the do_a,b,c vars are not needed any more.
+    done
+
+    for choice in $choices;
+    do echo "Creating nhdr lib for $choice";
+       create_nhdr_lib $choice $debugging;
     done
     
     if [ "x_$do_brainstem" == "x_1" ]; then

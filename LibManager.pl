@@ -43,13 +43,13 @@ our %cmd_flags = (
 
 
 our %lib_template = (
-    'Atlases'                        => 'dir',
-    'About.qml'                      => 'file',
-    'blank.mrml'                     => 'file',
+#    'Atlases'                        => 'dir',
+#    'About.qml'                      => 'file',
+#    'blank.mrml'                     => 'file',
     'DataTemplate_protocolmenu.qml'  => 'file',
     'DataTemplate_Review.html'       => 'file',
     'lib.conf'                       => 'conf',
-    'models.mrml'                    => 'file',
+#    'models.mrml'                    => 'file',
     'Static_Render'                  => 'lib',
     #'LabelModels'   '
     );
@@ -96,7 +96,7 @@ sub Main
     }
     print("full_dest:\t$dest_path\n");
     if ( ! -d $source_path ) {
-	die "Unavailable source: $source_path !";
+	confess( "Unavailable source: $source_path !");
     }
     
     my %dir_opts=('chmod' => 0777);
@@ -190,7 +190,7 @@ sub lib_parse
     my $conf_inpath=$inpath.'/'.'lib.conf';
     my $conf_outpath=$outpath.'/'.'lib.conf';
     if ( ! -f $conf_inpath) { # check inpath for a lib.conf.
-	warn "No conf, not a lib";
+	cluck( "No conf, not a lib");
     } else {
 	#if ( ! -f $conf_outpath ){
 	#}
@@ -208,15 +208,13 @@ sub lib_parse
 	my $file_pat=$lib_conf->get_value('FilePattern');
 	my $test_bool=$lib_conf->get_value('TestingLib');#=true
 	if ($test_bool =~ /^([Tt][Rr][Uu][Ee]|1)$/x ) {
-	    #die "TEST STATUS($test_bool) TRUE";
+	    #confess( "TEST STATUS($test_bool) TRUE");
 	    $test_bool=1;
 	} else {
-	    #die "TEST STATUS($test_bool) FALSE";
+	    #confess( "TEST STATUS($test_bool) FALSE");
 	    $test_bool=0;
 	}
-	   
-	
-	if ( $lib_path =~ /NO_KEY/x) { # eg If we didnt find a libpath, we're a payload library
+   	if ( $lib_path =~ /NO_KEY/x) { # eg If we didnt find a libpath, we're a payload library
 	    $lib_path=$inpath;
 	    #http://stackoverflow.com/questions/35241844/how-to-the-access-the-last-item-of-a-list-returned-by-a-subroutine-without-copyi
 	    # getting the last path component via answer from weblink.
@@ -241,7 +239,7 @@ sub lib_parse
 	    $file_pat='(^'.$file_pat.'$)|(^'.join('$)|(^',@template_entries).')$';
 	    print("Complete File pattern: $file_pat\n");
 =item
-	    opendir(my $dh, $some_dir) || die "Can't open $some_dir: $!";
+	    opendir(my $dh, $some_dir) || confess( "Can't open $some_dir: $!");
 	    while (readdir $dh) {
 		print "$some_dir/$_\n";
 
@@ -250,9 +248,10 @@ sub lib_parse
 	    closedir $dh;
 =cut
 	    
-	    opendir(my $dhout, $outpath) || die "Can't open $outpath: $!";
+	    opendir(my $dhout, $outpath) || confess( "Can't open $outpath: $!");
 	    while (readdir $dhout) {
-		if ( $_ =~ /^[.]{1,2}$/){ # if its a . or .. skip.
+		if ( $_ =~ /^[.]{1,2}$/){ # if its a . or .. skip. Actually i want to skip any hidden files i think.
+		#if ( $_ =~ /^[.].*$/){ # If we're a hidden file (eg starting with .) .
 		    #print ("skip $_\n");
 		    next;
 		}
@@ -271,14 +270,19 @@ sub lib_parse
 		} elsif ( $test_bool ) {
 		    print("Remove(testlib) $_\n");
 		    $work_list->{$_}='rm';
+		} elsif ( $_ =~ /^[.]([^.]+|[.].+)$/){ 
+		    # starts with . and has more than one additional non . char or starts with .. and has additional chars
+		    print("Remove(hidden) $_\n");
+		    $work_list->{$_}='rm';
 		}
 	    } 
 	    closedir $dhout;
 
-	    opendir(my $dhin, $inpath) || die "Can't open $inpath: $!";
+	    opendir(my $dhin, $inpath) || confess( "Can't open $inpath: $!");
 	    while (readdir $dhin) {
-		if ( $_ =~ /^[.]{1,2}$/ || $test_bool ){ # if its a . or .. skip.
-		    #print ("skip $_\n");
+		#if ( $_ =~ /^[.]{1,2}$/ || $test_bool ){ # if its a . or .. skip.
+		if ( $_ =~ /^[.].*$/ || $test_bool ){ #  If we're a hidden file/folder (eg starting with .) .
+		    print("Ignore(hidden) $_\n");
 		    next;
 		} elsif ( $_ =~ /$file_pat/x 
 			  && $_ !~ /.*junk.*/x
@@ -309,7 +313,7 @@ sub lib_parse
 			if ( defined $work_list->{$_} ) {
 			    print("Add $f_inpath <- ".$work_list->{$_}."\n");
 			} else {
-			    confess ("work_list $_ not defined!"); }
+			    cluck ("work_list $_ not defined!"); }
 		    } else {
 			print("Ignore(time) $_\n");
 		    }
@@ -324,6 +328,7 @@ sub lib_parse
 	} else {
 	    # index lib behavior! hopefully we'll handle this better by setting up a transfer for both the index lib, and the payload lib.
 	    if ( $in_ts != $out_ts ) { # i just want not equal, because index's are special.
+		
 		$work_list->{'lib.conf'}=$lib_template{'lib.conf'};
 	    }
 	}
@@ -338,7 +343,7 @@ sub load_lib_conf
 {
     my ($conf_path)=@_;
     my $lc=new Headfile('ro',$conf_path);
-    if (! $lc->check() || ! $lc->read_headfile ) { die "Conf path failure $conf_path, \n\tfull_err:$!"; }
+    if (! $lc->check() || ! $lc->read_headfile ) { confess( "Conf path failure $conf_path, \n\tfull_err:$!"); }
     return $lc;
 }
 
@@ -376,6 +381,9 @@ sub do_work
 	    $cp_flags=$cp_flags." --suffix=$suf.bak"
 	}
 	my $outp="\'".$out_p."\'";# adding single quotes to out_p here, but using normal out_p for rest of function.
+	#if ( $work->{$_} =~/lib/){
+	    #print("\t$update_cmd{$work->{$_}} $cp_flags $in_p $outp\n");
+	#}
 	$cmd= "$update_cmd{$work->{$_}} $cp_flags $in_p $outp";
 #	if ($work->{$_} =~ /rm/ ) {
 #	    $cmd= "$update_cmd{$work->{$_}} $cp_flags $out_p";
