@@ -16,7 +16,7 @@ use lib split(':',$RADISH_PERL_LIB);
 require Headfile;
 require pipeline_utilities;
 #use civm_simple_util qw(load_file_to_array get_engine_constants_path printd whoami whowasi debugloc $debug_val $debug_locator);# debug_val debug_locator);
-use civm_simple_util qw(printd mod_time  sleep_with_countdown load_file_to_array $debug_val $debug_locator);
+use civm_simple_util qw(printd mod_time  sleep_with_countdown load_file_to_array write_array_to_file $debug_val $debug_locator);
 $debug_val=20;
 
 
@@ -28,19 +28,26 @@ my $can_dump = eval {
 };
 
 our  %data_ranges=(
-    'ad'=> [0.0, 0.002], 
-    'adc'=> [0.0, 0.002], 
-    'b0' => [1500, 20000 ],
-    'chi' => [ -0.20, 0.20],
-    'dwi' => [1500, 20000 ],
-    'fa' => [0.1, 0.7],
+    #'ad'=> [0.0, 0.002],
+    'ad'=> [0.0, 0.001], #good for chass
+    #'adc'=> [0.0, 0.002],
+    'adc'=> [0.0, 0.001], # good for chass
+    #'b0' => [1500, 20000 ],
+    'b0' => [1500, 32000 ],# good for chass
+    'chi' => [ -0.20, 0.20],# good for chass
+    #'dwi' => [1500, 20000 ],
+    'dwi' => [1500, 18000 ],# good for chass
+    #'fa' => [0.1, 0.7],
+    'fa' => [0, 0.7],# good for chass
     'fa_color' => [0, 126],
     'labels' => [0, 255],
-    'gre' => [1500, 20000 ],
+    #'gre' => [1500, 20000 ],
+    'gre' => [303420, 711234 ],# good for chass, THIS NEEDS TO BE FIXED.
     #'GRE' => [1500, 20000 ],
-    'm0' => [1500,20000],
+    #'m0' => [1500,20000],# not used.
     't2star' => [1500, 20000 ],
-    'rd' => [0.0, 0.002],
+    #'rd' => [0.0, 0.002],
+    'rd' => [0.0, 0.001],# good for chass.
     #    'e1' => [ 0.0, 0.002],
     #    'e2' => [ 0.0, 0.0],
     #    'e3' => [ 0.0,  0.0],
@@ -200,10 +207,16 @@ sub create_nhdr {
 	#
 	# add min/max to nhdr.
 	#
-	$cmd="if [ `grep -c 'min:=' $output` -eq 0 ]; then echo 'min:=$data_ranges{$abrev}[0]' >> $output ; fi";
-	print($cmd."\n");qx/$cmd/;
-	$cmd="if [ `grep -c 'max:=' $output` -eq 0 ]; then echo 'max:=$data_ranges{$abrev}[1]' >> $output ; fi";
-	print($cmd."\n");qx/$cmd/;
+	
+	#$cmd="if [ `grep -c 'min:=' $output` -eq 0 ]; then echo 'min:=$data_ranges{$abrev}[0]' >> $output ; fi";
+	#print($cmd."\n");qx/$cmd/;
+	#$cmd="if [ `grep -c 'max:=' $output` -eq 0 ]; then echo 'max:=$data_ranges{$abrev}[1]' >> $output ; fi";
+	#print($cmd."\n");qx/$cmd/;
+
+	my $v_hr={} ;
+	$v_hr->{"min"}=$data_ranges{$abrev}[0];
+	$v_hr->{"max"}=$data_ranges{$abrev}[1];
+	update_nhdr($output,$v_hr,':=');
 	#last;
     }
 }
@@ -302,3 +315,50 @@ sub get_conf {
     
     return $lc;
 }
+
+sub update_nhdr {
+    my ($hdr,$var_hash_ref,$sigil)=@_;
+    if (! defined $sigil){
+	$sigil=':=';
+    }
+    my $var_hr = { %$var_hash_ref };# copy hash so we can destroy it 8) .
+    # taking the $hdr path, and the variable hash ref.
+    my $err=1;
+    my @lines;
+    my @output;
+    load_file_to_array($hdr,\@lines);
+    chomp(@lines);
+    my @vars=keys(%$var_hr);
+    my $reg=join('|',@vars);
+    my $line='';
+    for $line(@lines) {
+	if ( $line !~ /^$reg[^\w]+/ ){
+	    push(@output,$line."\n");
+	} else {
+	    # existing, do update
+	    foreach ( @vars){
+		if ( $line =~ /^$_[^\w]+/ ){
+		    print("Updating $_ line $line with ");
+		    $line=~/^([^=]+).*/;
+		    $line=$1."=".$var_hr->{$_};
+		    print("$line\n");
+		    push(@output,$line."\n");
+		    delete $var_hr->{$_};
+		}
+	    }
+	}
+    }
+    
+    foreach (keys(%$var_hr) ) {
+	print("Updating $_ line with ");
+	$line=$_.$sigil.$var_hr->{$_};
+	print("$line\n");
+	push(@output,$line."\n");
+	
+    }
+    write_array_to_file($hdr,\@output);
+    
+    return $err;
+}
+
+1;
