@@ -8,13 +8,15 @@
 #
 
 import sys, getopt, ntpath
+import SimpleITK as sitk
+import sitkUtils
 
 def main(argv):
     inputfile = ''
     outputfile = ''
     bitdepth = ''
     try:
-        opts, args = getopt.getopt(argv,"b:hi:o:",["bitdepth","ifile=","ofile="])
+        opts, args = getopt.getopt(argv,"b:hi:o:",["bitdepth=","ifile=","ofile="])
     except getopt.GetoptError:
         print 'nhdr_create.py -i <inputfile> -o <outputfile> [-bitdpeth <sitkbitdepths>]'
         print 'see https://itk.org/SimpleITKDoxygen/html/namespaceitk_1_1simple.html#ae40bd64640f4014fba1a8a872ab4df98 for the bitdepth info'
@@ -29,6 +31,7 @@ def main(argv):
             outputfile = arg
         elif opt in ("-b", "--bitdepth"):
             bitdepth = arg
+            print 'bitdepth found"' + bitdepth + '"'
             
     infolder, inname = ntpath.split(inputfile)
     d_pos=inname.index('.')
@@ -39,20 +42,25 @@ def main(argv):
     print 'Input file is "' + inputfile + '"'
     print 'Node Name is "' + inname + '"'
     print 'Output file is "' + outputfile + '"'
+    if bitdepth:
+        print 'Changing bitdepth output to "' + bitdepth + '"'
+        
     loadVolume(inputfile)
-    #scene = slicer.mrmlScene
-    #volumes = scene.GetNodesByName(inname)
+    scene = slicer.mrmlScene
+    volumes = scene.GetNodesByName(inname)
+    vol = volumes.GetItemAsObject(volumes.GetNumberOfItems()-1)
+    vol.SetName(inname+'in')
+    inname=inname+'in'
+    outname=outname+'_out'
     #vol = volumes.GetItemAsObject(0)
     # Able to fix image intensity using scale image to right scale, then cast to 16bit.
     #vOut = slicer.modules.volumes.logic().CloneVolumeWithoutImageData(scene,vol,outname)
 
-    import SimpleITK as sitk
-    import sitkUtils
     #inputImage = sitkUtils.PullFromSlicer('MRHead')
     #filter = sitk.SignedMaurerDistanceMapImageFilter()
     #outputImage = filter.Execute(inputImage)
     #sitkUtils.PushToSlicer(outputImage,'outputImage')
-    from SimpleFilters import SimpleFiltersLogic
+    #from SimpleFilters import SimpleFiltersLogic
     
     #filter = SimpleFiltersLogic()
     #myFilter = sitk.RescaleIntensityImageFilter()
@@ -64,24 +72,61 @@ def main(argv):
     #filter.main_queue_running
     #while filter.main_queue_running:
     #    sleep(0.5)
-    
+    scene = slicer.mrmlScene    
     if not bitdepth:
         print "Not changing bitdepth."
-    else
+        print "Getting vol from scene for save"
+        volumes = scene.GetNodesByName(inname)
+    else:
+        print "Setting IM Max by bitdepth"
+        if bitdepth == "UInt64":
+            im_max=4294967296
+        elif bitdepth == "UInt32":
+            im_max=4294967296
+        elif bitdepth == "UInt16":
+            im_max=65535
+        elif bitdepth == "UInt8":
+            im_max=255
+        elif bitdepth == "Int64":
+            im_max=2147483647
+        elif bitdepth == "Int32":
+            im_max=2147483647
+        elif bitdepth == "Int16":
+            im_max=32768
+        elif bitdepth == "Int8":
+            im_max=128
+        elif bitdepth == "LabelUInt64":
+            im_max=4294967296
+        elif bitdepth == "LabelUInt32":
+            im_max=4294967296
+        elif bitdepth == "LabelUInt16":
+            im_max=65535
+        elif bitdepth == "LabelUInt8":
+            im_max=255
+        else:
+            raise NameError('UnsupportedBitDepthSpecified')
+            
+        print "Setting up rescale filter"
         myFilter = sitk.RescaleIntensityImageFilter()
         myFilter.SetDebug(False)
         myFilter.SetNumberOfThreads(8)
         in_im=sitkUtils.PullFromSlicer(inname)
+        print "execute rescale"
         out_im=myFilter.Execute(in_im,0.0,im_max)
-        myFilter = CastImageFilter()
+        print "Setting up cast filter"
+        myFilter = sitk.CastImageFilter()
         myFilter.SetDebug(False)
         myFilter.SetNumberOfThreads(8)
         #sitk.sitkUInt16
         #eval('sitk.sitkUInt16')
         bt='sitk.sitk'+bitdepth
+        print "Using bitdepth code " + bt + "(" +  str(eval(bt)) + ")"
         myFilter.SetOutputPixelType(eval(bt))
+        print "execute cast"
         out_im=myFilter.Execute(out_im)
         sitkUtils.PushToSlicer(out_im,outname)
+        print "Getting vol from scene for save"
+        volumes = scene.GetNodesByName(outname)
         
     #####
     # example code
@@ -95,7 +140,8 @@ def main(argv):
     #           slicer.util.getNode('Histo_Label_Map'),
     #           slicer.util.getNode('Histo_Urethra_Label_Map'))
     #####
-
+    vOut = volumes.GetItemAsObject(volumes.GetNumberOfItems()-1)
+    print "saving node " + outname
     saveNode(vOut,outputfile)
     
 if __name__ == "__main__":
