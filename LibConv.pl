@@ -31,7 +31,7 @@ our  %data_ranges=(
     #'ad'=> [0.0, 0.002],
     'ad'=> [0.0, 0.001], #good for chass
     #'adc'=> [0.0, 0.002],
-    'adc'=> [0.0, 0.001], # good for chass
+#    'adc'=> [0.0, 0.001], # good for chass
     #'b0' => [1500, 20000 ],
     'b0' => [1500, 32000 ],# good for chass
     'chi' => [ -0.20, 0.20],# good for chass
@@ -51,7 +51,32 @@ our  %data_ranges=(
     #    'e1' => [ 0.0, 0.002],
     #    'e2' => [ 0.0, 0.0],
     #    'e3' => [ 0.0,  0.0],
-);
+    );
+#
+# These data states come from simple itk, cutting off the sitk part of each.
+#
+# https://itk.org/SimpleITKDoxygen/html/namespaceitk_1_1simple.html#ae40bd64640f4014fba1a8a872ab4df98
+# 
+our  %data_state;
+$data_state->{"b0"}->    {"bitdepth"}="UInt16";
+$data_state->{"dwi"}->   {"bitdepth"}="UInt16";
+$data_state->{"gre"}->   {"bitdepth"}="UInt16";
+$data_state->{"t2star"}->{"bitdepth"}="UInt16";
+#$data_state->{"labels"}->{"bitdepth"}="UInt8";
+
+$data_state->{"ad"}->      {"range"}=[0.0, 0.001]; #good for chass
+#$data_state->{"adc"}->     {"range"}=[0.0, 0.001]; #good for chass
+$data_state->{"b0"}->      {"range"}=[1500,20000];
+$data_state->{"chi"}->     {"range"}=[-0.20,0.20];
+$data_state->{"dwi"}->     {"range"}=[1500,20000];
+$data_state->{"fa"}->      {"range"}=[0.0, 0.7];
+$data_state->{"fa_color"}->{"range"}=[0,255];
+$data_state->{"gre"}->     {"range"}=[1500,20000];
+$data_state->{"labels"}->  {"range"}=[0,255];
+$data_state->{"t2star"}->  {"range"}=[1500,20000];
+$data_state->{"rd"}->      {"range"}=[0.0, 0.001];
+
+
 
 
 Main();
@@ -59,7 +84,7 @@ exit;
 
 sub Main {
     my %opts;
-    if (! getopts('d:i', \%opts) ) {
+    if (! getopts('d:fi', \%opts) ) {
     }
     $debug_val=$debug_val+$opts{d} if ( exists $opts{"d"} ) ; # -d debug mins
 
@@ -78,7 +103,7 @@ sub Main {
     print("dest_path:\t$dest_path\n");
     my $files=discover_files($source_path);
     # makes hash of name=path,ext, can opeht with path+ext
-    create_nhdr($files,$source_path,$dest_path);
+    create_nhdr($files,$source_path,$dest_path,$opts);
 }
 
 
@@ -117,7 +142,7 @@ sub discover_files{
 }
 
 sub create_nhdr {
-    my ($files,$source,$dest)=@_;
+    my ($files,$source,$dest,$opts)=@_;
     if ($can_dump){
 	#Data::Dump::dump($files);
     }
@@ -134,7 +159,7 @@ sub create_nhdr {
 
 
 	#
-	# Create output
+	# Backup input nhdr
 	#
 	# if not existing.
 	if( exists($files->{$fn}->{"nhdr"}) ) {
@@ -148,16 +173,10 @@ sub create_nhdr {
 	}
 	my $outdata=$output.".raw.gz";
 	$output=$output.".nhdr";
-	my $cmd=" /Applications/AtlasViewer20170316_Release.app/Contents/MacOS/atlasviewer --exit-after-startup --no-splash --no-main-window --python-script /Volumes/DataLibraries/_AppStreamLibraries/DataHandlers/slicer_saveasnhdr.py -i $input -o $output";
 
-	printd(5,"$cmd\n");
-	if ( ! -f $outdata ) {
-	    #print("make nhdr $input $output\n");
-	    qx/$cmd/; # make new file
-	} else {
-	    printd(30,"data exists for $output\n");
-	}
-	
+	#
+	# get Abrev 
+	#
 	my ($p,$n)=fileparts($output,2);my $e=".nhdr";
 	my $lc=get_conf($dest,$p);
 	
@@ -197,8 +216,25 @@ sub create_nhdr {
 	    print("Switching abrev from $abrev to $lc->get_value($abrev)\n");
 	    $abrev=$lc->get_value($abrev);
 	}
+
+	#
+	# create output data.
+	#
 	
-	if (! exists($data_ranges{$abrev} ) ){
+	
+	my $cmd=" /Applications/AtlasViewer20170316_Release.app/Contents/MacOS/atlasviewer --exit-after-startup --no-splash --no-main-window --python-script /Volumes/DataLibraries/_AppStreamLibraries/DataHandlers/slicer_data_conv.py -i $input -o $output ";
+	if ( exists($data_state->{$abrev}->{"bitdepth"} ) ){
+	    $cmd=$cmd." --bitdepth ".$data_state->{$abrev}->{"bitdepth"};
+	}
+	printd(5,"$cmd\n");
+	if ( ! -f $outdata || exists $opts{"f"} ) {
+	    #print("make nhdr $input $output\n");
+	    qx/$cmd/; # make new file
+	} else {
+	    printd(30,"data exists for $output\n");
+	}
+
+	if (! exists($data_state->{$abrev}->{"range"} ) ){
 	    $lc->print_headfile();
 	    #Data::Dump::dump($lc);exit;
     	    confess ("Unknown abrev '$abrev'\n");
@@ -214,8 +250,8 @@ sub create_nhdr {
 	#print($cmd."\n");qx/$cmd/;
 
 	my $v_hr={} ;
-	$v_hr->{"min"}=$data_ranges{$abrev}[0];
-	$v_hr->{"max"}=$data_ranges{$abrev}[1];
+	$v_hr->{"min"}=$data_state->{$abrev}->{"range"}[0]
+	$v_hr->{"max"}=$data_state->{$abrev}->{"range"}[1]
 	update_nhdr($output,$v_hr,':=');
 	#last;
     }
