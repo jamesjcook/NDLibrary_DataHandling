@@ -57,24 +57,25 @@ our  %data_ranges=(
 #
 # https://itk.org/SimpleITKDoxygen/html/namespaceitk_1_1simple.html#ae40bd64640f4014fba1a8a872ab4df98
 # 
-our  %data_state;
-$data_state->{"b0"}->    {"bitdepth"}="UInt16";
-$data_state->{"dwi"}->   {"bitdepth"}="UInt16";
-$data_state->{"gre"}->   {"bitdepth"}="UInt16";
-$data_state->{"t2star"}->{"bitdepth"}="UInt16";
+our  $data_state;
+$data_state->{"b0"}->    {"bitdepth"}="Int16";
+$data_state->{"dwi"}->   {"bitdepth"}="Int16";
+$data_state->{"gre"}->   {"bitdepth"}="Int16";
+$data_state->{"t2star"}->{"bitdepth"}="Int16";
 #$data_state->{"labels"}->{"bitdepth"}="UInt8";
 
-$data_state->{"ad"}->      {"range"}=[0.0, 0.001]; #good for chass
+$data_state->{"ad"}->      {"range"}=[  0.0, 0.001]; #good for chass
 #$data_state->{"adc"}->     {"range"}=[0.0, 0.001]; #good for chass
-$data_state->{"b0"}->      {"range"}=[1500,20000];
+$data_state->{"b0"}->      {"range"}=[ 1500,20000];
 $data_state->{"chi"}->     {"range"}=[-0.20,0.20];
-$data_state->{"dwi"}->     {"range"}=[1500,20000];
-$data_state->{"fa"}->      {"range"}=[0.0, 0.7];
-$data_state->{"fa_color"}->{"range"}=[0,255];
-$data_state->{"gre"}->     {"range"}=[1500,20000];
-$data_state->{"labels"}->  {"range"}=[0,255];
-$data_state->{"t2star"}->  {"range"}=[1500,20000];
-$data_state->{"rd"}->      {"range"}=[0.0, 0.001];
+$data_state->{"dwi"}->     {"range"}=[ 1500,20000];
+$data_state->{"fa"}->      {"range"}=[  0.0, 0.7];
+$data_state->{"fa_color"}->{"range"}=[    0,200];
+$data_state->{"gre"}->     {"range"}=[ 1500,20000];
+$data_state->{"labels"}->  {"range"}=[    0,255];
+#$data_state->{"md"}->      {"range"}=[    0, 0.001]; # but we're not useing MD!
+$data_state->{"t2star"}->  {"range"}=[ 1500,20000];
+$data_state->{"rd"}->      {"range"}=[ 0.0, 0.001];
 
 
 
@@ -103,7 +104,7 @@ sub Main {
     print("dest_path:\t$dest_path\n");
     my $files=discover_files($source_path);
     # makes hash of name=path,ext, can opeht with path+ext
-    create_nhdr($files,$source_path,$dest_path,$opts);
+    create_nhdr($files,$source_path,$dest_path,\%opts);
 }
 
 
@@ -221,13 +222,14 @@ sub create_nhdr {
 	# create output data.
 	#
 	
-	
-	my $cmd=" /Applications/AtlasViewer20170316_Release.app/Contents/MacOS/atlasviewer --exit-after-startup --no-splash --no-main-window --python-script /Volumes/DataLibraries/_AppStreamLibraries/DataHandlers/slicer_data_conv.py -i $input -o $output ";
+	my $slicer_app="/Applications/AtlasViewer20170316_Release.app/Contents/MacOS/atlasviewer";
+	$slicer_app="/Applications/Slicer-4.7.0-2017-05-02.app/Contents/MacOS/Slicer";
+	my $cmd="$slicer_app --exit-after-startup --no-splash --no-main-window --python-script /Volumes/DataLibraries/_AppStreamLibraries/DataHandlers/slicer_data_conv.py -i $input -o $output ";
 	if ( exists($data_state->{$abrev}->{"bitdepth"} ) ){
 	    $cmd=$cmd." --bitdepth ".$data_state->{$abrev}->{"bitdepth"};
 	}
 	printd(5,"$cmd\n");
-	if ( ! -f $outdata || exists $opts{"f"} ) {
+	if ( ! -f $outdata || exists $opts->{"f"} ) {
 	    #print("make nhdr $input $output\n");
 	    qx/$cmd/; # make new file
 	} else {
@@ -250,8 +252,8 @@ sub create_nhdr {
 	#print($cmd."\n");qx/$cmd/;
 
 	my $v_hr={} ;
-	$v_hr->{"min"}=$data_state->{$abrev}->{"range"}[0]
-	$v_hr->{"max"}=$data_state->{$abrev}->{"range"}[1]
+	$v_hr->{"min"}=$data_state->{$abrev}->{"range"}[0];
+	$v_hr->{"max"}=$data_state->{$abrev}->{"range"}[1];
 	update_nhdr($output,$v_hr,':=');
 	#last;
     }
@@ -286,8 +288,11 @@ sub get_conf {
     @file_list=sort(@file_list);
     printd(40,"Conf search order:\n".join("\n",@file_list)."\n");
     my $data_path_a= abs_path($data_path);
+    #$data_path_a=unrel_path($data_path);
+    $data_path_a=$data_path;
     #chomp($data_path_a);
-    $data_path_a =~ s/[^[:print:]]+//g;
+    $data_path_a=~s:[\/]$::;# trim trailing slashes from path.
+    $data_path_a =~ s/[^[:print:]]+//g;# remove non print chars from path
     printd(15,"Searching for '$data_path_a'\n");
     foreach my $file (@file_list){
 	my @conf_lines=();
@@ -304,12 +309,16 @@ sub get_conf {
 		warn('mutltiple paths found, using last');
 		sleep_with_countdown(3);
 	    }
-	    $path_direct[$#path_direct]=~s/^Path=//;
-	    $path_direct[$#path_direct]=~s:[\/]$::;
+	    # when libraryies load, they only use the last found value for a variable. so these lines do that.
+	    $path_direct[$#path_direct]=~s/^Path=//;# this removes Path= from the line
+	    $path_direct[$#path_direct]=~s:[\/]$::;# trim trailing slahes from path.
+	    
 	    my $rp=$p."/".$path_direct[$#path_direct];
-	    #my $ap= File::Spec->rel2abs($rp);
-	    $ap= abs_path($rp);
-	    printd(25,"resolved path '$p' \n\t'$rp'\n\t'$ap'\n");
+	    $rp=~s:/+:/:gx;
+	    
+	    #$ap= abs_path($rp);
+	    $ap = unrel_path($rp);
+	    printd(25,"resolved path input:'$p' \n\trel:'$rp'\n\tabs:'$ap'\n");
 	} else {
 	    $ap=$p;
 	}
@@ -317,8 +326,11 @@ sub get_conf {
 	if ( $ap eq $data_path_a ) {
 	    unshift(@conf_stack,$file);
 	    printd(15,"Sucessfully found root lib.\n");
+	    printd(15,"\tchecking $p/../lib.conf\n");
 	    while( -f $p."/../lib.conf"){
-		$p=$p."/..";
+		#$p=$p."/..";
+		$p=~s:/+:/:gx;
+		my @_t=split('/',$p);pop(@_t);$p=join('/',@_t);
 		unshift(@conf_stack,$p."/lib.conf");
 	    }
 	    #exit;
@@ -348,8 +360,25 @@ sub get_conf {
     if ( scalar(@keys) == 0 ) {
 	confess("lib conf load failure");
     }
-    
+    #exit;
     return $lc;
+}
+
+sub unrel_path {
+    my ($folder)=@_;
+    
+    my @o_f;
+    my @_t=split('/',$folder);
+    
+    for my $nam (@_t) {
+	if ($nam =~ /^[.]{2}$/x) {
+	    pop(@o_f);
+	} else {
+	    push(@o_f,$nam);
+	}
+    }
+    
+    return join("/",@o_f);
 }
 
 sub update_nhdr {
