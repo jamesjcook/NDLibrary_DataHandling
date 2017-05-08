@@ -92,7 +92,7 @@ def main(argv):
         elif bitdepth == "Int32":
             im_max=2147483647
         elif bitdepth == "Int16":
-            im_max=32768
+            im_max=32767
         elif bitdepth == "Int8":
             im_max=128
         elif bitdepth == "LabelUInt64":
