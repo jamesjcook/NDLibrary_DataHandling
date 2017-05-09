@@ -143,6 +143,11 @@ function process_meta_index() {
     # echo "  $base_path/Brain/Mus_Musculus/mouse_chass_images/dti $dest_path/DataLibraries_mouse_brain/Brain";
     # echo "  $base_path/Brain/Mus_Musculus/whs_atlas/dti101 $dest_path/DataLibraries_mouse_brain/Brain";
     # echo "";
+    echo "setting version for $dest_path/$choice_dest"
+    find $dest_path/$choice_dest -name "v*" -maxdepth 1 -exec rm {} \; -print
+    find $dest_path/$choice_dest -name "lib.conf.*.bak" -exec basename {} \;|sort -u > $dest_path/$choice_dest/v_tmp;
+    ver=`tail -n 1 $dest_path/$choice_dest/v_tmp |cut -d '.' -f 3 `
+    mv $dest_path/$choice_dest/v_tmp $dest_path/$choice_dest/v${ver}
     return;
 }
 
