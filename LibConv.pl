@@ -62,7 +62,7 @@ $data_state->{"b0"}->    {"bitdepth"}="Int16";
 $data_state->{"dwi"}->   {"bitdepth"}="Int16";
 $data_state->{"gre"}->   {"bitdepth"}="Int16";
 $data_state->{"t2star"}->{"bitdepth"}="Int16";
-#$data_state->{"labels"}->{"bitdepth"}="UInt8";
+#$data_state->{"labels"}->{"bitdepth"}="UInt8";# Not all labels are 8bit, so this is dangerous.
 
 $data_state->{"ad"}->      {"range"}=[  0.0, 0.001]; #good for chass
 #$data_state->{"adc"}->     {"range"}=[0.0, 0.001]; #good for chass
@@ -70,10 +70,10 @@ $data_state->{"b0"}->      {"range"}=[ 1500,20000];
 $data_state->{"chi"}->     {"range"}=[-0.20,0.20];
 $data_state->{"dwi"}->     {"range"}=[ 1500,20000];
 $data_state->{"fa"}->      {"range"}=[  0.0, 0.7];
-$data_state->{"fa_color"}->{"range"}=[    0,200];
+$data_state->{"fa_color"}->{"range"}=[    0,170];
 $data_state->{"gre"}->     {"range"}=[ 1500,20000];
 $data_state->{"labels"}->  {"range"}=[    0,255];
-#$data_state->{"md"}->      {"range"}=[    0, 0.001]; # but we're not useing MD!
+#$data_state->{"md"}->      {"range"}=[    0, 0.001]; # but we're not useing MD! AND we canonically call md adc.
 $data_state->{"t2star"}->  {"range"}=[ 1500,20000];
 $data_state->{"rd"}->      {"range"}=[ 0.0, 0.001];
 
