@@ -233,10 +233,9 @@ sub create_nhdr {
 	     || -M $outdata > -M $input ) {
 	    if ( -M $output > -M $input ) {
 		print("Time update for $input -> $output\n");
-		exit; 
 	    } elsif ( -M $outdata > -M $input ) {
 		print("Time update for $input -> $outdata\n");
-		exit; }
+	    }
 	    #print("make nhdr $input $output\n");
 	    qx/$cmd/; # make new file
 	    
