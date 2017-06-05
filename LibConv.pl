@@ -168,7 +168,7 @@ sub create_nhdr {
 	    #$backup=~s/nhdr/bak.nhdr/x;
 	    my $cmd="cp -p $input $backup ";
 	    print($cmd."\n");
-	    if(  -f $backup ) { 
+	    if( -f $backup ) { 
 	    }
 	    #qx/$cmd/;
 	}
@@ -229,9 +229,17 @@ sub create_nhdr {
 	    $cmd=$cmd." --bitdepth ".$data_state->{$abrev}->{"bitdepth"};
 	}
 	printd(5,"$cmd\n");
-	if ( ! -f $outdata || exists $opts->{"f"} ) {
+	if ( ! -f $outdata || exists $opts->{"f"} 
+	     || -M $outdata > -M $input ) {
+	    if ( -M $output > -M $input ) {
+		print("Time update for $input -> $output\n");
+		exit; 
+	    } elsif ( -M $outdata > -M $input ) {
+		print("Time update for $input -> $outdata\n");
+		exit; }
 	    #print("make nhdr $input $output\n");
 	    qx/$cmd/; # make new file
+	    
 	} else {
 	    printd(30,"data exists for $output\n");
 	}
