@@ -173,9 +173,9 @@ function create_nhdr_lib () {
     echo "Updating appstream pile";
     echo "  $choice_pile -> $dest_pile"
     # tree duplicaiton via rsync filtering images.
-    echo rsync --exclude "*nii*" --exclude "*nhdr" --exclude "*gz*" --exclude "*tif" --delete -axv $choice_pile $dest_pile >> cmd_list.txt
+    echo rsync --exclude "nrrd" --exclude "*nii*" --exclude "*nhdr" --exclude "*gz*" --exclude "*tif" --delete -axv $choice_pile $dest_pile >> cmd_list.txt
     if [ "x_$testmode" == "x_0" ]; then
-	rsync --exclude "*nii*" --exclude "*nhdr" --exclude "*gz*" --exclude "*tif" --delete -axv $choice_pile/ $dest_pile
+	rsync --exclude "nrrd" --exclude "*nii*" --exclude "*nhdr" --exclude "*gz*" --exclude "*tif" --delete -axv $choice_pile/ $dest_pile
     fi
     #which mk_nhdr no this isnt what we want....
     echo ./LibConv.pl $choice_pile $dest_pile >> cmd_list.txt
