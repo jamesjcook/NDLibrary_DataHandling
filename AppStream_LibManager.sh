@@ -8,12 +8,6 @@ if [ ! -d $base_path -o ! -d $dest_path ]; then
     echo "Libraries not available!";
 fi
 
-
-do_rat=0;
-
-do_brainstem=0;
-update_prod1_mouse=0;
-do_mouse=0;
 #choices="mouse rat human";
 choices="mouse rat human_brainstem";
 #choices="mouse";
@@ -202,7 +196,7 @@ function main () {
     done
     
     if [ "x_$do_brainstem" == "x_1" ]; then
-	echo DOING human brainstem
+	echo DOING human brainstem;exit;
 	# if[diff $base_path/040Human_Brainstem/040BrainStem/lib.conf $base_path/Brain/Human/130827-2-0/lib.conf]; then
 	./LibManager.pl $base_path/040Human_Brainstem/040BrainStem/lib.conf $base_path/Brain/Human/130827-2-0/lib.conf
 	sed -i ".sed_bak" -e "s/^\(Path=.*\)$/#\1/g" $base_path/Brain/Human/130827-2-0/lib.conf
@@ -213,7 +207,7 @@ function main () {
     fi
 
     if [ "x_$do_rat" == "x_1" ]; then
-	echo DOING rat;
+	echo DOING rat;exit;
 	# Reduce Update....
 	# first do an update of the source data from the source index. This should capture lib.conf(and probably only lib.conf) so they are consistent with one another.
 	./LibManager.pl $base_path/010Rat_Brain/21Rat/lib.conf $base_path/Brain/Rattus_norvegicus/Wistar/Xmas2015Rat/lib.conf
@@ -242,7 +236,7 @@ function main () {
     fi
 
     if [ "x_$do_mouse" == "x_1" ]; then
-	echo DOING $choice;
+	echo DOING $choice;exit;
 	# first do an update of the source data from the source index. This should capture lib.conf(and probably only lib.conf) so they are consistent with one another.
 	#while doing these index updates, grab the real path to be updated as well.
 	data_paths="";
@@ -313,6 +307,7 @@ function main () {
 
     if [ "x_$update_prod1" == "x_1" ]; then
 	echo "Updating production 1";
+	exit;
 	# this looks like a re-run with a different dest_path.
 	# THIS IS MORE DANGEROUS
 	# SO we'll just echo the parts out here.
