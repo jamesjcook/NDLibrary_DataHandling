@@ -41,7 +41,9 @@ our %cmd_flags = (
     'rm'  => '-fr'
     );
 
-
+# I keep reudicng template members in favor of coding the information into that individual lib.conf
+# I think at this point only the three parts , DataTemplate_protocolmenu.qml, DataTemplate_Review.html, and lib.conf need remain.
+# 
 our %lib_template = (
 #    'Atlases'                        => 'dir',
 #    'About.qml'                      => 'file',
@@ -50,7 +52,7 @@ our %lib_template = (
     'DataTemplate_Review.html'       => 'file',
     'lib.conf'                       => 'conf',
 #    'models.mrml'                    => 'file',
-    'Static_Render'                  => 'lib',
+#    'Static_Render'                  => 'lib',
     #'LabelModels'   '
     );
 
