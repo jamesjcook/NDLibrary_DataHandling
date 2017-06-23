@@ -224,6 +224,11 @@ sub create_nhdr {
 	
 	my $slicer_app="/Applications/AtlasViewer20170316_Release.app/Contents/MacOS/atlasviewer";
 	$slicer_app="/Applications/Slicer-4.7.0-2017-05-02.app/Contents/MacOS/Slicer";
+	if ( ! -d $slicer_app ) {
+	    cluck("Slicer wasnt found where expected, trying a mounted panoramaHD");
+	    $slicer_app="/Volumes/panoramaHD".$slicer_app;
+	}
+
 	my $cmd="$slicer_app --exit-after-startup --no-splash --no-main-window --python-script /Volumes/DataLibraries/_AppStreamLibraries/DataHandlers/slicer_data_conv.py -i $input -o $output ";
 	if ( exists($data_state->{$abrev}->{"bitdepth"} ) ){
 	    $cmd=$cmd." --bitdepth ".$data_state->{$abrev}->{"bitdepth"};

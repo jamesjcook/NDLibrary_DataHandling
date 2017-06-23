@@ -6,6 +6,7 @@ dest_path=/Volumes/DataLibraries/_AppStreamLibraries
 
 if [ ! -d $base_path -o ! -d $dest_path ]; then
     echo "Libraries not available!";
+exit;
 fi
 
 #choices="mouse rat human";
