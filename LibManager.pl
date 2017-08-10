@@ -22,6 +22,14 @@ use civm_simple_util qw(mod_time  sleep_with_countdown $debug_val $debug_locator
 $debug_val=20;
 
 
+
+my $can_dump = eval {
+    # this little snippit checks if the cool data structure dumping code is available.
+    require Data::Dump;
+    Data::Dump->import(qw(dump));
+    1;
+};
+
 #copy definitions
 #-rlptgoD
 our %update_cmd = (
@@ -37,7 +45,7 @@ our %cmd_flags = (
     'dir' => '-RPp',
     #'file'=> '-pt',
     'file'=> '-p',
-    'lib' => '',
+    'lib' => '-d '.($debug_val+10),
     'rm'  => '-fr'
     );
 
@@ -64,8 +72,9 @@ sub Main
     my %opts;
     if (! getopts('d:', \%opts) ) {
     }
-    $debug_val=$debug_val+$opts{d} if ( exists $opts{"d"} ) ; # -d debug mins
-
+    use List::Util qw[min max];
+    if ( exists $opts{"d"} ) # -d debug mins
+    {print "Seting debug max($debug_val,$opts{d})\n"; $debug_val=max($debug_val,$opts{d}); }
     my $source_path=$ARGV[0];
     my $dest_starter=$ARGV[1];
 
@@ -83,8 +92,7 @@ sub Main
     # figure out where in the path we want to do stuff.
     #  eg, how much of the path is symetric, once the path is symetric stop, run through the mkdir bits.
     # In plain language, parse dest_starter, and get last component dir.
-    # Now we find that component in source, the components up to that point is the source_base, which is allowed to fluxuate.
-
+    # Now we find that component in source, the components up to that point is the source_base, which is allowed to fluctuate.
 
     #my ($source_trail,$dest_base)=get_source_trail($source_path,$dest_starter);
 
@@ -100,9 +108,9 @@ sub Main
     if ( ! -d $source_path ) {
 	confess( "Unavailable source: $source_path !");
     }
-    
+
     my %dir_opts=('chmod' => 0777);
-    if ( ! -e $dest_path ) {
+    if ( ! -d $dest_path ) {
 	print("\tmkdir -p $dest_path\n");
 	make_path($dest_path,\%dir_opts) if $debug_val<50;
     }
@@ -112,6 +120,9 @@ sub Main
     #my $failures = manage_lib($source_path,$dest_path);
 
     my $work=lib_parse($source_path,$dest_path);
+    if ($can_dump){
+	Data::Dump::dump($work);
+    }
     my $failures=do_work($source_path,$dest_path,$work);
     if ($#{$failures} >= 0 ){
 	print ("Fail manage:\n".join("\n",@{$failures})."\n");
@@ -149,8 +160,8 @@ sub check_inputs
 sub get_full_destpath
 {
     my ($source,$dest)=@_;
-    my @s_parts=File::Spec->splitdir($source);
-    my @d_parts=File::Spec->splitdir($dest);
+    my @s_parts=File::Spec->splitdir(path_collapse($source));
+    my @d_parts=File::Spec->splitdir(path_collapse($dest));
     my @s_base=();
     my $ci=0;
     # while this part of source path, doesnt match the last element of dest parts
@@ -160,7 +171,40 @@ sub get_full_destpath
     }
     my @eparts=@d_parts[0..$#d_parts-1];
     push(@eparts,@s_parts[$ci..$#s_parts]);
+    
+    #return path_collapse(File::Spec->catdir(@eparts));
     return File::Spec->catdir(@eparts);
+}
+=item 
+    
+    path_collapse(path)
+    takes a path in and collapses any ../ elements in the middle of the path to their correct compenent.
+    ex, /thing/thing2/../thinga = /thing/thinga
+    ex2, /thing/thing2/thio/../../ = /thing
+
+=cut
+    
+sub path_collapse 
+{
+    my($path)=@_;
+    my @p_parts=File::Spec->splitdir($path);
+    my @outpath;
+    my $indent="";
+    foreach (@p_parts) {
+	if ($_ !~ /[.]{2}/ ) {#&& scalar(@outpath)>0 ){
+	    print($indent."$_ (add) \n") if ($debug_val>40);
+	    push(@outpath,$_);
+	    $indent=$indent."  " if ($debug_val>40);
+	} elsif(scalar(@outpath)==0 ){
+	    die("NOT ENOUGH PATH PARTS");
+	} else {
+	    #	    $indent=~s/  //;
+	    my $rem=pop(@outpath);
+	    print($indent.$rem."(remove) \n") if ($debug_val>40);
+
+	}
+    }
+    return File::Spec->catdir(@outpath);
 }
 
 sub dirbuild_lib
@@ -216,7 +260,26 @@ sub lib_parse
 	    #confess( "TEST STATUS($test_bool) FALSE");
 	    $test_bool=0;
 	}
-   	if ( $lib_path =~ /NO_KEY/x) { # eg If we didnt find a libpath, we're a payload library
+   	if ( $lib_path !~ /NO_KEY/x) { # eg Found a libpath, we're not a payload library
+	    # index lib behavior! hopefully we'll handle this better by setting up a transfer for both the index lib, and the payload lib.
+	    print("Redirect found \n");
+    	    $work_list->{$lib_path}='lib';
+	    #
+	    # transfer lib into folder
+	    #
+	    # this is a bandaid becuase its not clear how to make this a standard part of work.
+	    my $lib_conf_path="$inpath/$lib_path/lib.conf";
+	    my $cmd="rsync -pt --backup $conf_inpath $lib_conf_path";
+	    # print("Transfercmd:$cmd\n");exit;
+	    qx($cmd);
+	    # then run this sed on it.
+	    $cmd='sed -i ".sed_bak" -e "s/^\(Path=.*\)$/#\1/g" '."$lib_conf_path >& 2"; # do the work
+	    # print("pathcmd:$cmd\n");exit;
+	    qx($cmd);
+	    if ( $in_ts != $out_ts ) { # i just want not equal, because index's are special.
+		$work_list->{'lib.conf'}=$lib_template{'lib.conf'};
+	    }
+	} else {
 	    $lib_path=$inpath;
 	    #http://stackoverflow.com/questions/35241844/how-to-the-access-the-last-item-of-a-list-returned-by-a-subroutine-without-copyi
 	    # getting the last path component via answer from weblink.
@@ -327,14 +390,7 @@ sub lib_parse
 		}
 	    }
 	    closedir $dhin;
-	} else {
-	    # index lib behavior! hopefully we'll handle this better by setting up a transfer for both the index lib, and the payload lib.
-	    if ( $in_ts != $out_ts ) { # i just want not equal, because index's are special.
-		
-		$work_list->{'lib.conf'}=$lib_template{'lib.conf'};
-	    }
 	}
-	
     }
     
     return $work_list;
@@ -361,8 +417,8 @@ sub do_work
 
 	## if not rm
 	if ( $work->{$_} !~ /rm/ ){
-
 	    $in_p=$inpath."/$_";
+	    confess("IN_P:$in_p missing!") if ( ! -e $in_p );
 	    $in_ts=mod_time("$in_p");
 	    $in_p="\'".$inpath."/$_"."\'";
 	    $out_ts=$in_ts-1;
@@ -400,6 +456,7 @@ sub do_work
 	#`$cmd`;
 	#	/Volumes/c$-1
 	if($debug_val>=50 ) {
+	    print("Debugging over 50, $debug_val\n");
 	    $cmd="echo ".$cmd;
 	}
 	my $pid = open( my $CID,"-|", "$cmd"  ) ;
