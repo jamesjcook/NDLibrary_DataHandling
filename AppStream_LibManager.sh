@@ -1,17 +1,24 @@
 #!/bin/bash
 # script to setup our appstream libs
 
+
+echo "THIS SCRIPT IS NOW OBSOLETE! LibManager does pretty much all the work!!!";
+exit;
+
+
+
 base_path=/Volumes/DataLibraries
 dest_path=/Volumes/DataLibraries/_AppStreamLibraries
 
+
 if [ ! -d $base_path -o ! -d $dest_path ]; then
     echo "Libraries not available!";
-exit;
+    exit;
 fi
 
 #choices="mouse rat human";
-choices="mouse rat human_brainstem";
-#choices="mouse";
+#choices="mouse rat human_brainstem";
+choices="mouse";
 #choices="rat";
 #choices="human_brainstem";
 
@@ -152,7 +159,7 @@ function create_nhdr_lib () {
     if [ "x_$testmode" != "x_0" ]; then
 	testmode=1;
     fi
-    testmode=0;
+    #testmode=0;
     #echo $choice
     choice_index=`ls -d $base_path/*|grep -i ${choice}`;# get datalibrary index dir
     bn=`basename $choice_index`; # get the folder name of the index.
@@ -191,120 +198,11 @@ function main () {
        process_meta_index $choice $debugging ; # this calls process_index. the do_a,b,c vars are not needed any more.
     done
 
+    debugging=2;
     for choice in $choices;
-    do echo "Creating nhdr lib for $choice";
+    do echo "Creating nhdr lib for $choice ";
        create_nhdr_lib $choice $debugging;
     done
-    
-    if [ "x_$do_brainstem" == "x_1" ]; then
-	echo DOING human brainstem;exit;
-	# if[diff $base_path/040Human_Brainstem/040BrainStem/lib.conf $base_path/Brain/Human/130827-2-0/lib.conf]; then
-	./LibManager.pl $base_path/040Human_Brainstem/040BrainStem/lib.conf $base_path/Brain/Human/130827-2-0/lib.conf
-	sed -i ".sed_bak" -e "s/^\(Path=.*\)$/#\1/g" $base_path/Brain/Human/130827-2-0/lib.conf
-	# fi
-	./LibManager.pl $base_path/040Human_Brainstem/ $dest_path/DataLibraries_human_brainstem/040Human_Brainstem
-	./LibManager.pl $base_path/040Human_Brainstem/040BrainStem/ $dest_path/DataLibraries_human_brainstem/040Human_Brainstem
-	./LibManager.pl $base_path/Brain/Human/130827-2-0 $dest_path/DataLibraries_human_brainstem/Brain
-    fi
-
-    if [ "x_$do_rat" == "x_1" ]; then
-	echo DOING rat;exit;
-	# Reduce Update....
-	# first do an update of the source data from the source index. This should capture lib.conf(and probably only lib.conf) so they are consistent with one another.
-	./LibManager.pl $base_path/010Rat_Brain/21Rat/lib.conf $base_path/Brain/Rattus_norvegicus/Wistar/Xmas2015Rat/lib.conf
-	sed -i ".sed_bak" -e "s/^\(Path=.*\)$/#\1/g" $base_path/Brain/Rattus_norvegicus/Wistar/Xmas2015Rat/lib.conf
-
-	./LibManager.pl $base_path/010Rat_Brain/23Rat/lib.conf $base_path/Brain/Rattus_norvegicus/Wistar/Developmental/00006912000/lib.conf
-	sed -i ".sed_bak" -e "s/^\(Path=.*\)$/#\1/g" $base_path/Brain/Rattus_norvegicus/Wistar/Developmental/00006912000/lib.conf
-
-	./LibManager.pl $base_path/000ExternalAtlasesBySpecies/Rat/example/lib.conf $base_path/ExternalAtlases/PaxinosWatson_265/lib.conf
-	sed -i ".sed_bak" -e "s/^\(Path=.*\)$/#\1/g" $base_path/ExternalAtlases/PaxinosWatson_265/lib.conf
-
-
-	# now do an acutal index transfer
-	./LibManager.pl $base_path/010Rat_Brain $dest_path/DataLibraries_rat_brain/010Rat_Brain
-	./LibManager.pl $base_path/000ExternalAtlasesBySpecies/Rat/example $dest_path/DataLibraries_rat_brain/000ExternalAtlasesBySpecies
-
-	# real transfers
-	./LibManager.pl $base_path/ExternalAtlases/PaxinosWatson_265 $dest_path/DataLibraries_rat_brain/ExternalAtlases
-	if [ 1 -eq 0 ] ; then
-	    echo -n ''
-	fi
-	./LibManager.pl $base_path/Brain/Rattus_norvegicus/Wistar/Xmas2015Rat $dest_path/DataLibraries_rat_brain/Brain
-	./LibManager.pl $base_path/Brain/Rattus_norvegicus/Wistar/Developmental/00006912000 $dest_path/DataLibraries_rat_brain/Brain
-
-	# not sure what i expect here, maybe i should specify each component? 
-    fi
-
-    if [ "x_$do_mouse" == "x_1" ]; then
-	echo DOING $choice;exit;
-	# first do an update of the source data from the source index. This should capture lib.conf(and probably only lib.conf) so they are consistent with one another.
-	#while doing these index updates, grab the real path to be updated as well.
-	data_paths="";
-
-	###
-	# Update source lib.conf from index
-	###
-	choice_index=`ls -d $base_path/*|grep -i ${choice}`;# get datalibrary index dir
-	echo "Updating indexes for $choice_index";
-	dirs=`ls -d $choice_index/*|grep -i ${choice}|grep -vE '/9.*' `; # get index dirs inside that datalibrary index
-	data_paths=`index_update "$dirs"`; # update the lib.conf in all data dirs based on the index file, comment out any path line in the data/lib.conf folder.
-	# echo "should have done"; # these comments are to compare to old data.
-	# echo "  $base_path/000Mouse_Brain/01Mouse/lib.conf $base_path/Brain/Mus_Musculus/mouse_chass_images/dti/lib.conf"
-	# echo "  $base_path/000Mouse_Brain/03Mouse/lib.conf $base_path/Brain/Mus_Musculus/whs_atlas/dti101/lib.conf"
-	# exit;
-
-	###
-	# Update dest index 
-	### 
-	bn=`basename $choice_index`; # get the folder name of the index.
-	cn=$( echo "$bn" | tr '[:upper:]' '[:lower:]' | sed -E 's/^([0-9]*)//g' ) ; # make whole thing lower case, cut off any numbers, 
-	choice_dest="DataLibraries_${cn}"; # make the destination name eg, 000Mouse_Brain becomes DataLibraries_mouse_brain
-	dest_pile=${dest_path}"/${choice_dest}/${bn}"; # get the full dest name
-	echo "Updating index";
-	echo "  $choice_index -> $dest_pile"
-	echo ./LibManager.pl $choice_index $dest_pile >> cmd_list.txt;
-	./LibManager.pl $choice_index $dest_pile; # do the work
-	# echo "should have done"; # these comments are to compare to old data.
-	# echo "  $base_path/000Mouse_Brain $dest_path/DataLibraries_mouse_brain/000Mouse_Brain";
-	# exit;
-
-	###
-	# Update external atlases of this choice
-	###
-	choice_index=`ls -d $base_path/*ExternalAtlasesBySpecies/*|grep -i ${choice}`;#get datalibrary index dir
-	echo "Updating indexes for $choice_index";
-	dirs=`ls -d $choice_index/*|grep -i ${choice}|grep -vE '^9.*' `;# #get index dirs inside that datalibrary index
-	data_paths="${data_paths} "`index_update "$dirs" "^example"`; #update the lib.conf in all data dirs based on the index file, ommitiing any which do not match pattern, commenting out any path lines in the data/lib.conf folder.
-	# echo "should have done"; # these comments are to compare to old data.
-	# echo "  $base_path/000ExternalAtlasesBySpecies/Mouse/example/lib.conf $base_path/ExternalAtlases/mitra/lib.conf"
-	# echo "";
-	# exit;
-	data_paths="$choice_index/example $data_paths"; # add additional index it to the beginning of the data paths here, beacuse the whole index acts like the data path.
-	echo "Found paths "; # show our data paths before we update those below.
-	for p in $data_paths; do  echo "  "$p; done
-
-	#size=${#myvar}
-	#b=${a:12:5}
-	###
-	# update the actual data.
-	##
-	echo "Updating Data... ";
-	for dir in $data_paths ; do
-	    length=`realpath $base_path`;length=${#length}; # get length of base_path
-	    out_suffix=${dir:(($length+1))}; # remove the base path, so we can add the dets path.
-	    echo "  $dir -> $dest_path/$choice_dest/$out_suffix"
-	    echo "./LibManager.pl $dir $dest_path/$choice_dest/$out_suffix"  >> cmd_list.txt; 
-	    ./LibManager.pl $dir $dest_path/$choice_dest/$out_suffix; # do the work
-	done;
-	# echo "should have done"; # these comments are to compare to old data.
-	# echo "  $base_path/000ExternalAtlasesBySpecies/Mouse/example $dest_path/DataLibraries_mouse_brain/000ExternalAtlasesBySpecies";
-	# echo "  $base_path/ExternalAtlases/mitra $dest_path/DataLibraries_mouse_brain/ExternalAtlases";
-	# echo "  $base_path/Brain/Mus_Musculus/mouse_chass_images/dti $dest_path/DataLibraries_mouse_brain/Brain";
-	# echo "  $base_path/Brain/Mus_Musculus/whs_atlas/dti101 $dest_path/DataLibraries_mouse_brain/Brain";
-	# echo "";
-    fi
-
 
     if [ "x_$update_prod1" == "x_1" ]; then
 	echo "Updating production 1";
