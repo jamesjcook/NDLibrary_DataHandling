@@ -1,0 +1,7 @@
+./LibManager.pl /Volumes/DataLibraries/000Mouse_Brain /Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain/000Mouse_Brain
+./LibManager.pl /Volumes/DataLibraries/000ExternalAtlasesBySpecies/Mouse/example/lib.conf /Volumes/DataLibraries/ExternalAtlases/mitra/lib.conf
+sed -i .sed_bak -e s/^\(Path=.*\)$/#\1/g /Volumes/DataLibraries/ExternalAtlases/mitra/lib.conf
+./LibManager.pl /Volumes/DataLibraries/000ExternalAtlasesBySpecies/Mouse/example /Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain/000ExternalAtlasesBySpecies/Mouse/example
+./LibManager.pl /Volumes/DataLibraries/ExternalAtlases/mitra /Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain/ExternalAtlases/mitra
+rsync --exclude nrrd --exclude *nii* --exclude *nhdr --exclude *gz* --exclude *tif --delete -axv /Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain /Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain_nhdr
+./LibConv.pl /Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain /Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain_nhdr
