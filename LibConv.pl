@@ -224,7 +224,7 @@ sub create_nhdr {
 	
 	my $slicer_app="/Applications/AtlasViewer20170316_Release.app/Contents/MacOS/atlasviewer";
 	$slicer_app="/Applications/Slicer-4.7.0-2017-05-02.app/Contents/MacOS/Slicer";
-	if ( ! -d $slicer_app ) {
+	if ( ! -f $slicer_app ) {
 	    cluck("Slicer wasnt found where expected, trying a mounted panoramaHD");
 	    $slicer_app="/Volumes/panoramaHD".$slicer_app;
 	}
@@ -236,10 +236,11 @@ sub create_nhdr {
 	printd(5,"$cmd\n");
 	if ( ! -f $outdata || exists $opts->{"f"} 
 	     || -M $outdata > -M $input ) {
-	    if ( -M $output > -M $input ) {
-		print("Time update for $input -> $output\n");
-	    } elsif ( -M $outdata > -M $input ) {
-		print("Time update for $input -> $outdata\n");
+	    
+	    if ( -f $output && -M $output > -M $input ) {
+		print("Time update because $input -> $output\n");
+	    } elsif ( -f $output &&  -M $outdata > -M $input ) {
+		print("Time update because $input -> $outdata\n");
 	    }
 	    #print("make nhdr $input $output\n");
 	    qx/$cmd/; # make new file
