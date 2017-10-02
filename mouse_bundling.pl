@@ -2,15 +2,17 @@
 use strict;
 use warnings;
 
-my $test_mode=6;
+my $test_mode=0;
 
 my $reduce_source="/Volumes/DataLibraries/000Mouse_Brain";
 my $reduce_dest="/Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain/000Mouse_Brain";
 
 my $cmd="";
 $cmd="./LibManager.pl $reduce_source $reduce_dest";
-qx($cmd) if $test_mode<=1;
 print($cmd."\n");
+exit;
+qx($cmd) if $test_mode<=1;
+
 
 my $conv_source="/Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain";
 my $conv_dest="/Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain_nhdr"; # THIS SHOULD NOT END IN SLASH!!(rsync)
@@ -18,23 +20,27 @@ my $bundle_dest="/Volumes/DataLibraries/_AppStreamLibraries/Bundle_mouse_brain_n
 
 
 $cmd="rsync --exclude nrrd --exclude *nii* --exclude *nhdr --exclude *gz* --exclude *tif --delete -axv $conv_source/ $conv_dest";
-qx($cmd) if $test_mode<=2;
 print($cmd."\n");
+qx($cmd) if $test_mode<=2;
+
 
 $cmd="./LibConv.pl /Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain $conv_dest";
-qx($cmd) if $test_mode<=3;
 print($cmd."\n");
+qx($cmd) if $test_mode<=3;
+
 
 # strip comments
 $cmd='sed -i \'\' \'/^[[:space:]]*#/d;s/#.*//\' '."\$(find $conv_dest -name lib.conf -type f)";
-qx($cmd) if $test_mode<=4;
 print($cmd."\n");
+qx($cmd) if $test_mode<=4;
+
 
 # remove backup (bak) files
 $cmd="find $conv_dest -name \"*.bak\" -type f -exec rm {} \\; -print";
-qx($cmd) if $test_mode<=5;
 print($cmd."\n");
+qx($cmd) if $test_mode<=5;
 
+exit;
 
 # do bundling
 if( ! -d $bundle_dest) {
