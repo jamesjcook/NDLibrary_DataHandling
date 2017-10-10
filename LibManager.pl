@@ -48,6 +48,7 @@ our %cmd_flags = (
     'lib' => '-d '.($debug_val+10),
     'rm'  => '-fr'
     );
+our $lib_stacks = {};
 
 # I keep reudicng template members in favor of coding the information into that individual lib.conf
 # I think at this point only the three parts , DataTemplate_protocolmenu.qml, DataTemplate_Review.html, and lib.conf need remain.
@@ -65,16 +66,26 @@ our %lib_template = (
     );
 
 Main();
+#if ($can_dump){
+    #Data::Dump::dump("Final lib stacks");
+    #Data::Dump::dump($lib_stacks);
+#}
+
 
 sub Main
 {
     ### check_inputs its a hard generalization
     my %opts;
-    if (! getopts('d:', \%opts) ) {
+    if (! getopts('c:d:', \%opts) ) {
     }
     use List::Util qw[min max];
     if ( exists $opts{"d"} ) # -d debug mins
     {print "Seting debug max($debug_val,$opts{d})\n"; $debug_val=max($debug_val,$opts{d}); }
+    if ( exists $opts{"c"} ) # -c list of additional confs
+    { print("Parent lib.confs to load $opts{c}\n");
+    }else {
+	$opts{"c"}="";
+    }
     my $source_path=$ARGV[0];
     my $dest_starter=$ARGV[1];
 
@@ -119,7 +130,7 @@ sub Main
     
     #my $failures = manage_lib($source_path,$dest_path);
 
-    my $work=lib_parse($source_path,$dest_path);
+    my $work=lib_parse($source_path,$dest_path,$opts{c});
     if ($can_dump){
 	Data::Dump::dump($work);
     }
@@ -127,9 +138,6 @@ sub Main
     if ($#{$failures} >= 0 ){
 	print ("Fail manage:\n".join("\n",@{$failures})."\n");
     }
-    #$dest_path/DataLibraries_mouse/000ExternalAtlasesBySpecies
-    
-    #execute comands. ?
     print("\tENDMAIN\n");
     return;
 }
@@ -231,7 +239,7 @@ sub dirbuild_lib
     
 sub lib_parse
 {
-    my ($inpath,$outpath ) =@_;
+    my ($inpath,$outpath,$parent_confs) =@_;
     my $work_list={};
     my $conf_inpath=$inpath.'/'.'lib.conf';
     my $conf_outpath=$outpath.'/'.'lib.conf';
@@ -248,8 +256,34 @@ sub lib_parse
 	if ( $in_ts > $out_ts ) { # if its newer, we'll want to transfer that.
 	    $work_list->{'lib.conf'}=$lib_template{'lib.conf'};
 	}
+
 	my $lib_conf=load_lib_conf($conf_inpath);
 	my $lib_path=$lib_conf->get_value('Path');
+	##
+	# Load parent libconfs..n
+	##
+	#my @parent_confs=();
+	my @conf_stack=();
+	if( defined $parent_confs) {
+	    @conf_stack=split(',',$parent_confs);
+	    my $own_conf=$lib_conf;
+	    #foreach @conf_stack... load and overwrite.
+	    my $par_conf=new Headfile('ro','nf');
+	    foreach (@conf_stack) {
+		my $nx_conf=load_lib_conf($_);
+		$nx_conf->delete_key('Path');
+		# this is the only key which may cause trouble.
+		# That is becuase it is not straight inherrited, on load it is followed,
+		# and then blanked any time its encountered.
+		$par_conf->copy_in($nx_conf);
+	    }
+	    $par_conf->copy_in($own_conf);
+	    $lib_conf=$par_conf;
+	    
+	    #$lib_conf->set_value("ParConf","$conf_stack[$#conf_stack]");
+	}
+	$lib_conf->print();
+	
 	my $lib_name=$lib_conf->get_value('LibName');
 	my $file_pat=$lib_conf->get_value('FilePattern');
 	my $test_bool=$lib_conf->get_value('TestingLib');#=true
@@ -260,10 +294,16 @@ sub lib_parse
 	    #confess( "TEST STATUS($test_bool) FALSE");
 	    $test_bool=0;
 	}
+
+	###
+	# handle redirects by returning early.
+	###
    	if ( $lib_path !~ /NO_KEY/x) { # eg Found a libpath, we're not a payload library
 	    # index lib behavior! hopefully we'll handle this better by setting up a transfer for both the index lib, and the payload lib.
 	    print("Redirect found \n");
-    	    $work_list->{$lib_path}='lib';
+  	    $work_list->{$lib_path}='lib';
+	    push(@{$lib_stacks->{$lib_path}},@conf_stack);
+	    push(@{$lib_stacks->{$lib_path}},$conf_inpath);
 	    #
 	    # transfer lib into folder
 	    #
@@ -279,8 +319,18 @@ sub lib_parse
 	    if ( $in_ts != $out_ts ) { # i just want not equal, because index's are special.
 		$work_list->{'lib.conf'}=$lib_template{'lib.conf'};
 	    }
-	} else {
+	    #OH ho! redir end here
+	    return $work_list;
+	} 
+	
+	###
+	# handle regular libs.
+	###
+	{
 	    $lib_path=$inpath;
+	    push(@{$lib_stacks->{$lib_path}},@conf_stack);
+	    push(@{$lib_stacks->{$lib_path}},$conf_inpath);
+	    #push(@lib_stacks{$lib_path},@parent_confs);
 	    #http://stackoverflow.com/questions/35241844/how-to-the-access-the-last-item-of-a-list-returned-by-a-subroutine-without-copyi
 	    # getting the last path component via answer from weblink.
 	    # exact code before using my vars " my ($last) = ( range() )[-1]; "
@@ -352,8 +402,11 @@ sub lib_parse
 		} elsif ( $_ =~ /$file_pat/x 
 			  && $_ !~ /.*junk.*/x
 			  && $_ !~ /.+~/x ) {
+		    
 		    my $f_inpath=$inpath.'/'.$_;
 		    my $f_outpath=$outpath.'/'.$_;
+		    push(@{$lib_stacks->{$_}},@conf_stack);
+		    push(@{$lib_stacks->{$_}},$conf_inpath);# add parent conf
 		    
 		    $in_ts=mod_time($f_inpath);#intime
 		    $out_ts=$in_ts-100; # because out doesnt have to exist, we'll make a dummy case of just one less
@@ -367,6 +420,7 @@ sub lib_parse
 			} elsif( -d $f_inpath) {
 			    if ( -f $f_inpath.'/lib.conf' ) {
 				$work_list->{$_}='lib';
+				#push(@{$lib_stacks->{$_}},$f_inpath); # add own conf, but we'll add our own conf when we load ourselves.
 			    } else {
 				$work_list->{$_.'/'}='dir';
 			    }
@@ -402,6 +456,7 @@ sub load_lib_conf
     my ($conf_path)=@_;
     my $lc=new Headfile('ro',$conf_path);
     if (! $lc->check() || ! $lc->read_headfile ) { confess( "Conf path failure $conf_path, \n\tfull_err:$!"); }
+    else { print("LoadedConf: $conf_path\n");}
     return $lc;
 }
 
@@ -442,7 +497,23 @@ sub do_work
 	#if ( $work->{$_} =~/lib/){
 	    #print("\t$update_cmd{$work->{$_}} $cp_flags $in_p $outp\n");
 	#}
-	$cmd= "$update_cmd{$work->{$_}} $cp_flags $in_p $outp";
+	my $update=$update_cmd{$work->{$_}};
+	my $lc="";
+	#push(@{$lib_stacks->{$lib_path}},$conf_inpath);
+	if ( $work->{$_} =~ /lib/ ) {
+	    #if ($can_dump){
+	    #    Data::Dump::dump("Current lib stacks for $_");
+	    #    Data::Dump::dump($lib_stacks);
+	    #}
+	    if (defined @{$lib_stacks->{$_}} ) {
+		$lc='-c '.join(",",@{$lib_stacks->{$_}} );
+	    } else {
+		#if ($can_dump){
+		#    Data::Dump::dump("Lib $_ libstack not defined.");}
+	    }
+	}
+	
+	$cmd= "$update $lc $cp_flags $in_p $outp";
 #	if ($work->{$_} =~ /rm/ ) {
 #	    $cmd= "$update_cmd{$work->{$_}} $cp_flags $out_p";
 #	}
