@@ -2,45 +2,107 @@
 use strict;
 use warnings;
 
-my $test_mode=0;
+use Env qw(RADISH_PERL_LIB );
+use lib split(':',$RADISH_PERL_LIB);
+require Headfile;
+require pipeline_utilities;
+#use civm_simple_util qw(load_file_to_array get_engine_constants_path printd whoami whowasi debugloc $debug_val $debug_locator);# debug_val debug_locator);
+use civm_simple_util qw(mod_time load_file_to_array sleep_with_countdown $debug_val $debug_locator);
 
+my $test_mode=0;
 my $reduce_source="/Volumes/DataLibraries/000Mouse_Brain";
-my $reduce_dest="/Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain/000Mouse_Brain";
+my $partial_dest="/Volumes/DataLibraries/_AppStreamLibraries";
+my $bundle_setup="$partial_dest/BundleSetup";
+
+###
+# Look at Source so we can set variable dest
+my ($ptxt,$version,$LibName);
+{
+    my @fa;
+    load_file_to_array("$reduce_source/lib.conf",\@fa);
+    chomp(@fa);
+    #my @redulist=grep(/^(?:\s)*(Path=v[0-9]{4}(?:-[0-9]{2}){2})/,@fa);
+    my @pathlist;
+    my @namelist;
+    for my $line (@fa) {
+	if(  $line =~ /^(?:\s)*(Path[\s]*=[\s]*v[0-9]{4}(?:-[0-9]{2}){2})([\s]*[#].*)?$/x ) {
+	    push(@pathlist,$1);
+	    #print("p$1\n");
+	}
+	elsif(  $line =~ /^(?:\s)*(LibName[\s]*=[\s]*[\w]+)([\s]*[#].*)?$/x ) {
+	    push(@namelist,$1);
+	    #print("n$1\n");
+	}
+    }
+
+    if (scalar($#pathlist)>-1){
+	#print("$reduce_source/lib.conf:".scalar(@pathlist)."\n".join(':',@pathlist)."\n");
+	($ptxt,$version)=split('=',$pathlist[$#pathlist]);
+	$version="_".trim($version);
+    } else {
+	$version="";
+    }
+    if (scalar($#namelist)>-1){
+	#print("$reduce_source/lib.conf:".scalar(@namelist)."\n".join(':',@namelist)."\n");
+	($ptxt,$LibName)=split('=',$namelist[$#namelist]);
+	$LibName=lc(trim($LibName));
+    } else {
+	$LibName="";
+    }
+    #print("LibName is $LibName\n");
+    #print("Version is $version\n");
+}
+###
+
+my $conv_source="";#/Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain";
+my @sdirs = File::Spec->splitdir( $reduce_source );
+if ($LibName eq "" ){
+    $LibName=$sdirs[-1];
+} else {
+    #print("LibName is set to $LibName, defacto alt would be $sdirs[-1]\n");
+}
+my $reduce_dest="$partial_dest/DataLibraries_$LibName$version/$sdirs[-1]";
+my @ddirs = File::Spec->splitdir( $reduce_dest );
+
+while($sdirs[$#sdirs] eq $ddirs[$#ddirs] && $#sdirs>=0 && $#ddirs>=0){
+    my $d1=pop(@sdirs);
+    my $d2=pop(@ddirs);
+}
+#print "i$conv_source";
+$conv_source=File::Spec->catdir(@ddirs);
+#print " o$conv_source\n";
+
+my $conv_dest="${conv_source}_nhdr"; # THIS SHOULD NOT END IN SLASH!!(rsync)
+my $bundle_dest="$partial_dest/Bundle_${LibName}${version}_nhdr";
 
 my $cmd="";
-$cmd="./LibManager.pl $reduce_source $reduce_dest";
+$cmd="./LibManager.pl -d45 $reduce_source $reduce_dest";
 print($cmd."\n");
-exit;
-qx($cmd) if $test_mode<=1;
-
-
-my $conv_source="/Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain";
-my $conv_dest="/Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain_nhdr"; # THIS SHOULD NOT END IN SLASH!!(rsync)
-my $bundle_dest="/Volumes/DataLibraries/_AppStreamLibraries/Bundle_mouse_brain_nhdr";
+run_cmd($cmd) if $test_mode<=1;
 
 
 $cmd="rsync --exclude nrrd --exclude *nii* --exclude *nhdr --exclude *gz* --exclude *tif --delete -axv $conv_source/ $conv_dest";
 print($cmd."\n");
-qx($cmd) if $test_mode<=2;
+run_cmd($cmd) if $test_mode<=2;
 
 
-$cmd="./LibConv.pl /Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain $conv_dest";
+$cmd="./LibConv.pl $conv_source $conv_dest";
 print($cmd."\n");
-qx($cmd) if $test_mode<=3;
+run_cmd($cmd) if $test_mode<=3;
 
 
 # strip comments
 $cmd='sed -i \'\' \'/^[[:space:]]*#/d;s/#.*//\' '."\$(find $conv_dest -name lib.conf -type f)";
 print($cmd."\n");
-qx($cmd) if $test_mode<=4;
+run_cmd($cmd) if $test_mode<=4;
 
 
 # remove backup (bak) files
 $cmd="find $conv_dest -name \"*.bak\" -type f -exec rm {} \\; -print";
 print($cmd."\n");
-qx($cmd) if $test_mode<=5;
+run_cmd($cmd) if $test_mode<=5;
 
-exit;
+
 
 # do bundling
 if( ! -d $bundle_dest) {
@@ -54,10 +116,12 @@ if( ! -d $bundle_dest) {
 }
 # find versioned data.
 $cmd="find $conv_dest -name \"v*\" -type d -print";
+print("Finding data with comamnd($cmd).\n");
+print("\n---\nVersionied Data:\n---");
 my @bundles=qx($cmd);
 chomp(@bundles);
-print($cmd."\n");
-print("Bundles_to_create:\n\t".join("\n\t",@bundles)."\n");
+
+print("\n\n---\nBundles_to_create:\n---\n\t".join("\n\t",@bundles)."\n");
 
 use Cwd;
 my $code_dir = getcwd();
@@ -115,11 +179,13 @@ foreach (@bundles) {
     print("cd $conv_dest;$cmd;cd $code_dir;\n");# show command to user
     #system($cmd) if $test_mode<=6;
     #`$cmd` if $test_mode<=6;
+    run_cmd($cmd);
+    if ( 0 ) { 
     open($fh, "-|", "$cmd");
     while ( openhandle($fh) && (my $line = <$fh>)) {
 	print("\t".$line);
     }
-    close($fh);
+    close($fh);}
 #} else {
     #print("Exists! -> $output_path\n");
 #}
@@ -131,8 +197,30 @@ print("Bundling! -> $output_path\n") if $test_mode<=6;
 chdir $conv_dest;
 $cmd="zip -o -v -FS -r $output_path 000ExternalAtlasesBySpecies ExternalAtlases";
 print("cd $conv_dest;$cmd;cd $code_dir;\n");# show command to user
+run_cmd($cmd);
+
+if (0 ) { 
 open(my $fh, "-|", "$cmd");
 while ( openhandle($fh) && (my $line = <$fh>)) {
     print("\t".$line);
 }
 close($fh);
+}
+
+
+$cmd="rsync -axv $bundle_setup/ $bundle_dest";
+print($cmd."\n");
+run_cmd($cmd) if $test_mode<=8;
+
+
+print("Bundling Complete for $LibName\n\t # -> $bundle_dest ");
+exit;
+sub run_cmd {
+    my ($cmd)=@_;
+    open(my $fh, "-|", "$cmd");
+    while ( openhandle($fh) && (my $line = <$fh>)) {
+	print("\t".$line); }
+    
+    close($fh);
+
+}
