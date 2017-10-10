@@ -17,7 +17,7 @@ require Headfile;
 require pipeline_utilities;
 #use civm_simple_util qw(load_file_to_array get_engine_constants_path printd whoami whowasi debugloc $debug_val $debug_locator);# debug_val debug_locator);
 use civm_simple_util qw(printd mod_time  sleep_with_countdown load_file_to_array write_array_to_file $debug_val $debug_locator);
-$debug_val=20;
+$debug_val=5;
 
 
 my $can_dump = eval {
@@ -73,7 +73,7 @@ $data_state->{"fa"}->      {"range"}=[  0.0, 0.7];
 $data_state->{"fa_color"}->{"range"}=[    0,170];
 $data_state->{"gre"}->     {"range"}=[ 1500,20000];
 $data_state->{"labels"}->  {"range"}=[    0,255];
-#$data_state->{"md"}->      {"range"}=[    0, 0.001]; # but we're not useing MD! AND we canonically call md adc.
+$data_state->{"md"}->      {"range"}=[    0, 0.001];
 $data_state->{"t2star"}->  {"range"}=[ 1500,20000];
 $data_state->{"rd"}->      {"range"}=[ 0.0, 0.001];
 
@@ -88,7 +88,7 @@ sub Main {
     if (! getopts('d:fi', \%opts) ) {
     }
     $debug_val=$debug_val+$opts{d} if ( exists $opts{"d"} ) ; # -d debug mins
-
+    
     my $source_path=$ARGV[0];
     my $dest_path=$ARGV[1];
     
@@ -274,7 +274,7 @@ sub create_nhdr {
 
 sub get_conf {
     my ($source, $data_path)=@_;
-    # starting source, there should will be aconf, 1-2 levels deep.
+    # starting source, there will be a conf, 1-2 levels deep.
     
     # current path,
     # 
@@ -294,6 +294,9 @@ sub get_conf {
     #my $conf_path=$source."/lib.conf";
     #if ( ! -f $source."/lib.conf" ){
     printd(25,"Searching for lib.conf's in $source\n");
+    # THIS CODE IS HOKEY AS HELL!
+    # it gets Path from all libs in base directory, then resolves to correct path.
+    # It looks for the exact path used.
     my $cmd="find  -E '$source' -iname 'lib.conf' ";
     my @file_list=`$cmd`;
     chomp(@file_list);
@@ -310,7 +313,7 @@ sub get_conf {
     foreach my $file (@file_list){
 	my @conf_lines=();
 	my ($p,$n,$e)=fileparts($file,2);
-	my $ap;
+	my $ap;# absolute_path
 	load_file_to_array($file,\@conf_lines,$debug_val);
 	#my @foo = grep(!/^#/, @bar);
 	my @path_direct = grep(/^Path.*$/, @conf_lines);
@@ -327,10 +330,10 @@ sub get_conf {
 	    $path_direct[$#path_direct]=~s:[\/]$::;# trim trailing slahes from path.
 	    
 	    my $rp=$p."/".$path_direct[$#path_direct];
-	    $rp=~s:/+:/:gx;
+	    $rp=~s:/+:/:gx; # convert repeating /'s into singles
 	    
 	    #$ap= abs_path($rp);
-	    $ap = unrel_path($rp);
+	    $ap = unrel_path($rp);# resolves ../ entries in path by removing that and eating the next part.
 	    printd(25,"resolved path input:'$p' \n\trel:'$rp'\n\tabs:'$ap'\n");
 	} else {
 	    $ap=$p;
@@ -350,15 +353,24 @@ sub get_conf {
 	    last;
 	}
     }
+    #Data::Dump::dump(@file_list);exit;
+    if(scalar(@conf_stack)<1 ){
+	print("NO conf found for $data_path_a.\n");
+	Data::Dump::dump(@file_list);exit;
+    }
+
     #Data::Dump::dump(@conf_stack);
     #} else {
     #    printd(25,"Found $source conf\n");
     #}
     my $lc=new Headfile('nf');
+    #Data::Dump::dump(@conf_stack);exit;
+    
     for my $conf_path (@conf_stack){
-	printd(30,"Loading $conf_path\n");
+	printd(20,"Loading $conf_path\n");
 	my $lt=new Headfile('ro',$conf_path);
 	if (! $lt->check() || ! $lt->read_headfile ) { confess( "Conf path failure $conf_path, \n\tfull_err:$!"); }
+	
 	my @keys=$lt->get_keys();
 	foreach (@keys){
 	    #if ( $lc->get_value($_) =~ /NO_KEY/ ) {
