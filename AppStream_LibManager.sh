@@ -3,6 +3,7 @@
 
 
 echo "THIS SCRIPT IS NOW OBSOLETE! LibManager does pretty much all the work!!!";
+echo "LOOK FOR SPECIFIC BUNDLING PL CODE FOR LIBRARY!"
 exit;
 
 
