@@ -9,8 +9,8 @@ require pipeline_utilities;
 #use civm_simple_util qw(load_file_to_array get_engine_constants_path printd whoami whowasi debugloc $debug_val $debug_locator);# debug_val debug_locator);
 use civm_simple_util qw(mod_time load_file_to_array sleep_with_countdown $debug_val $debug_locator);
 
-my $test_mode=9;
-my $reduce_source="/Volumes/DataLibraries/000Mouse_Brain";
+my $test_mode=2;
+my $reduce_source="/Volumes/DataLibraries/001Mouse_Body";
 my $partial_dest="/Volumes/DataLibraries/_AppStreamLibraries";
 my $bundle_setup="$partial_dest/BundleSetup";
 
@@ -199,7 +199,7 @@ foreach (@bundles) {
 
 ###
 # bundling - non-versioned portions
-$output_path="$bundle_dest/Mouse_Brain_examples.zip";
+$output_path="$bundle_dest/Mouse_Body_examples.zip";
 print("Bundling! -> $output_path\n") if $test_mode<=6;
 chdir $conv_dest;
 $cmd="zip -o -v -FS -r $output_path 000ExternalAtlasesBySpecies ExternalAtlases";
