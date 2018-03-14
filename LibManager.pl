@@ -501,18 +501,19 @@ sub do_work
 	my $lc="";
 	#push(@{$lib_stacks->{$lib_path}},$conf_inpath);
 	if ( $work->{$_} =~ /lib/ ) {
-	    #if ($can_dump){
-	    #    Data::Dump::dump("Current lib stacks for $_");
-	    #    Data::Dump::dump($lib_stacks);
-	    #}
-	    if (defined @{$lib_stacks->{$_}} ) {
+	    if ($can_dump){
+	        Data::Dump::dump("Current lib stacks for $_");
+	        Data::Dump::dump($lib_stacks);
+	    }
+	    #if (defined @{$lib_stacks->{$_}} ) {
+	    if (scalar @{$lib_stacks->{$_}}>0 ) {
 		$lc='-c '.join(",",@{$lib_stacks->{$_}} );
 	    } else {
 		#if ($can_dump){
 		#    Data::Dump::dump("Lib $_ libstack not defined.");}
 	    }
 	}
-	
+
 	$cmd= "$update $lc $cp_flags $in_p $outp";
 #	if ($work->{$_} =~ /rm/ ) {
 #	    $cmd= "$update_cmd{$work->{$_}} $cp_flags $out_p";
