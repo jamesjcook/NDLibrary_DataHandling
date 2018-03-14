@@ -229,7 +229,7 @@ sub create_nhdr {
 	    $slicer_app="/Volumes/panoramaHD".$slicer_app;
 	}
 
-	my $cmd="$slicer_app --exit-after-startup --no-splash --no-main-window --python-script /Volumes/DataLibraries/_AppStreamLibraries/DataHandlers/slicer_data_conv.py -i $input -o $output ";
+	my $cmd="$slicer_app --exit-after-startup --no-splash --no-main-window --python-script /Volumes/DataLibraries/_AppStreamSupport/DataHandlers/slicer_data_conv.py -i $input -o $output ";
 	if ( exists($data_state->{$abrev}->{"bitdepth"} ) ){
 	    $cmd=$cmd." --bitdepth ".$data_state->{$abrev}->{"bitdepth"};
 	}
