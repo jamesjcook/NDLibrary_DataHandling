@@ -217,7 +217,7 @@ run_cmd($cmd) if $test_mode<=8;
 # bundling - put whole thing in zip
 # Should pick the library item number from the
 
-$output_path="$partial_dest/CIVM-17001${version}.zip";
+$output_path="$partial_dest/CIVM-17005${version}.zip";
 #use File::Spec qw(splitdir);
 #my @bparts = File::Spec->splitdir( $bundle_dest );
 #$bundle_nme=pop(@bparts);
