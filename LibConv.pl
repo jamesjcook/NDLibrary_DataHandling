@@ -208,11 +208,16 @@ sub create_nhdr {
 	#eval ( "$abrev=$file_ma;") ;
 	#eval ("$abrev=~ s/^$file_pat$/$file_ma/x");# this doesnt
 	#$abrev=~ s/^$file_pat$/$file_ma/ee;# this does!!! This failed when we had beginning/ending sigls on the input pattern.
-	$abrev=~ s/$file_pat/$file_ma/ee;# this does!!!
+	#$abrev=~ s/$file_pat/$file_ma/ee;# this does!!!
+	
+	# use re 'debugcolor'; # useful debugging for regex
+	# YAPE::Regex::Explain # alternative regex help, but didnt try it .
+	$abrev=~ s/$file_pat/$file_ma/ee;# the ee is required!!!, BUT I DONT UNDERSTAND WHY!!!!
 	#print("abrev=$abrev\n");
 	
 	#Data::Dump::dump(@stuff);exit;
-	$abrev=lc( $abrev);
+	#printd(5,"${abrev}_1".lc($abrev)."\n");
+	$abrev=lc( $abrev);# libconf
 	if( $lc->get_value($abrev) !~ /NO_KEY/ ){
 	    print("Switching abrev from $abrev to $lc->get_value($abrev)\n");
 	    $abrev=$lc->get_value($abrev);
