@@ -9,7 +9,7 @@ require pipeline_utilities;
 #use civm_simple_util qw(load_file_to_array get_engine_constants_path printd whoami whowasi debugloc $debug_val $debug_locator);# debug_val debug_locator);
 use civm_simple_util qw(mod_time load_file_to_array sleep_with_countdown $debug_val $debug_locator);
 
-my $test_mode=2;
+my $test_mode=1;
 my $reduce_source="/Volumes/DataLibraries/040Human_Brainstem";
 my $partial_dest="/Volumes/DataLibraries/_AppStreamLibraries";
 my $bundle_setup="$partial_dest/BundleSetup";
