@@ -9,7 +9,7 @@ require pipeline_utilities;
 #use civm_simple_util qw(load_file_to_array get_engine_constants_path printd whoami whowasi debugloc $debug_val $debug_locator);# debug_val debug_locator);
 use civm_simple_util qw(mod_time load_file_to_array sleep_with_countdown $debug_val $debug_locator);
 
-my $test_mode=1;
+my $test_mode=0;
 my $reduce_source="/Volumes/DataLibraries/040Human_Brainstem";
 my $partial_dest="/Volumes/DataLibraries/_AppStreamLibraries";
 my $bundle_setup="$partial_dest/BundleSetup";
@@ -54,6 +54,17 @@ my ($ptxt,$version,$LibName);
 }
 ###
 
+
+###
+# Get the conversion source, and dest, and bundle dest
+# this is complicated becuase of different conventions for index data and the full library tree.
+# In simple terms, the index folder is inside the full library tree, so when we're reducing,
+# we take an index, and place it inside a new full tree,
+# that makes the inputs to LibManager INDEX_PATH/SINGLE_ITEM_PATH, NEW_FULL_TREE
+#
+# After that the conversion operates on a full tree without sensitivity to lib.conf files.
+# So its inputs get to be simpler, and so does that part to fhte work.
+# 
 my $conv_source="";#/Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain";
 my @sdirs = File::Spec->splitdir( $reduce_source );
 if ($LibName eq "" ){
@@ -63,10 +74,13 @@ if ($LibName eq "" ){
 }
 my $reduce_dest="$partial_dest/DataLibraries_$LibName$version/$sdirs[-1]";
 my @ddirs = File::Spec->splitdir( $reduce_dest );
-
+print("Dir trimming source and dest\n".
+      "\t\t$reduce_source\n".
+      "\t\t$reduce_dest\n");
 while($sdirs[$#sdirs] eq $ddirs[$#ddirs] && $#sdirs>=0 && $#ddirs>=0){
     my $d1=pop(@sdirs);
-    my $d2=pop(@ddirs);
+    $d1=pop(@ddirs);
+    print("\t$d1\n");
 }
 #print "i$conv_source";
 $conv_source=File::Spec->catdir(@ddirs);
@@ -74,7 +88,20 @@ $conv_source=File::Spec->catdir(@ddirs);
 
 my $conv_dest="${conv_source}_nhdr"; # THIS SHOULD NOT END IN SLASH!!(rsync)
 my $bundle_dest="$partial_dest/Bundle_${LibName}${version}_nhdr";
+###
 
+
+####
+# BEGIN WORK.
+####
+print("Outputs will be based in $partial_dest\n".
+      "reducing $reduce_source -> $reduce_dest\n".
+      "will convert $conv_source -> $conv_dest\n".
+      "will bundle $conv_dest -> $bundle_dest\n");
+print("Are these the same?\n".# No they're not becuase conv_source is a full tree, and reduce_dest is a specific index.
+      "\t$reduce_dest\n".
+      "\t$conv_source\n");
+die;
 ### 
 # Perform reduciton using LibManager, with high debugging.
 my $cmd="";
@@ -93,7 +120,7 @@ run_cmd($cmd) if $test_mode<=2;
 ###
 # Convert data files into _nhdr library using LibConv
 $cmd="./LibConv.pl $conv_source $conv_dest";
-print($cmd."\n");
+print($cmd."\n");die;
 run_cmd($cmd) if $test_mode<=3;
 ###
 
@@ -232,6 +259,8 @@ run_cmd($cmd) if $test_mode<=9;
 print("Bundling Complete for $LibName\n\t # -> $bundle_dest ");
 exit;
 sub run_cmd {
+    print("start $cmd\n");die;
+    return run_and_watch(@_,"\t");
     my ($cmd)=@_;
     open(my $fh, "-|", "$cmd");
     while ( openhandle($fh) && (my $line = <$fh>)) {
