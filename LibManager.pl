@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # LibManager
-# tranfers clean library to new location
+# tranfers library to new location using lib.conf rules to omit all data which wouldnt be displayed.
 # updates clean libraries
 # verifies library contents.
 
@@ -61,11 +61,12 @@ our %lib_template = (
     'DataTemplate_Review.html'       => 'file',
     'lib.conf'                       => 'conf',
 #    'models.mrml'                    => 'file',
+#    'tractography.mrml'              => 'file',
 #    'Static_Render'                  => 'lib',
     #'LabelModels'   '
     );
 
-Main();
+exit Main();
 #if ($can_dump){
     #Data::Dump::dump("Final lib stacks");
     #Data::Dump::dump($lib_stacks);
@@ -74,9 +75,12 @@ Main();
 
 sub Main
 {
-    ### check_inputs its a hard generalization
+    ### check_inputs its a hard generalization, not used for now. 
     my %opts;
     if (! getopts('c:d:', \%opts) ) {
+        print("OPTIONS: ".
+              " -c filepath1(,filepathN)* additional configuration files to load for this data comma separated, loaded in order, later files override settings in earlier files, with our own config being last.\n".
+              " -d[##]  debug value to use, controls verbosity \n");
     }
     use List::Util qw[min max];
     if ( exists $opts{"d"} ) # -d debug mins
@@ -96,7 +100,7 @@ sub Main
     }
     if ( $#errors>=0 ) {
 	print(join("\n",@errors)."\n");
-	return;
+	return 1;
     }
 
     # what are the steps to transfer and update libs?
@@ -119,7 +123,7 @@ sub Main
     if ( ! -d $source_path ) {
 	confess( "Unavailable source: $source_path !");
     }
-
+    die;
     my %dir_opts=('chmod' => 0777);
     if ( ! -d $dest_path ) {
 	print("\tmkdir -p $dest_path\n");
@@ -139,11 +143,20 @@ sub Main
 	print ("Fail manage:\n".join("\n",@{$failures})."\n");
     }
     print("\tENDMAIN\n");
-    return;
+    return 0;
 }
+
+=item 
+
+    check_inputs DEADCODE
+    verify our inputs ... some how, couldnt find satisfactory abstraction. 
+    
+
+=cut
 
 sub check_inputs
 {
+    die "DEADCODE";
     my @messages=();
     
     if ( $#ARGV < 1 ) {
@@ -162,9 +175,21 @@ sub check_inputs
     return @messages;
 }
 
+
+=item
+
+    get_full_destpath 
+    given an input full path, and an output partial path, 
+    get the desired output path 
+    e.g. /input/path/is/greatness -> /output/path  returns /output/path/is/greatness
+    
+
 # In plain language, parse dest_starter, and get last component dir.
 # Now we find that component in source, the components up to that point are the source_base, which is allowed to fluxuate.
 # 
+
+=cut
+    
 sub get_full_destpath
 {
     my ($source,$dest)=@_;
@@ -183,6 +208,7 @@ sub get_full_destpath
     #return path_collapse(File::Spec->catdir(@eparts));
     return File::Spec->catdir(@eparts);
 }
+
 =item 
     
     path_collapse(path)
@@ -217,6 +243,7 @@ sub path_collapse
 
 sub dirbuild_lib
 {
+    #DEADCODE
     # checks if lib has any work to do. makes a list of transfers if any are required.
     # builds directory tree if there is any.
     my @work=();
@@ -230,7 +257,11 @@ sub dirbuild_lib
     Check for a lib.conf file.
     +if it exists-> load the lib.conf file. Check for LibPath var.
     ++if it exists-> check modify time, if newer add lib.conf to work list and stop processing
-    +-ifnot exists-> get proper libname, check libtemplate for available files, understand filepattern variable, add any files that match pattern, after the template files. Add any directories found. 
+    +-ifnot exists-> get proper libname, check libtemplate for available files,
+    +-               understand filepattern variable,
+    +-               add any files that match pattern,
+    +-               after the template files.
+    +-               Add any directories found. 
 
     -ifnot Exists-> return doing nothing
     
@@ -567,6 +598,7 @@ sub do_work
 
 sub manage_lib
 {
+    die "DEADCODE?";
     my ($source_path,$dest_path)=@_;
     my $work=lib_parse($source_path,$dest_path);
     return do_work($source_path,$dest_path,$work);
@@ -586,7 +618,7 @@ sub manage_lib
     |-/models.mrml
     |-/Static_Render
     |---LabelModels
-
+    |-/tractography.mrml
 =cut
     
 1;
@@ -611,6 +643,7 @@ sub manage_lib
     |-----models.mrml
     |-----Static_Render
     |-------LabelModels
+    |-----tractography.mrml
     |---Member
     |-----About.qml
     |-----models.mrml
