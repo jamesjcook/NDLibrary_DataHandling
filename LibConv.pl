@@ -27,6 +27,7 @@ my $can_dump = eval {
     1;
 };
 
+#### DATARANGES IS VESTIGIAL CODE. 
 our  %data_ranges=(
     #'ad'=> [0.0, 0.002],
     'ad'=> [0.0, 0.001], #good for chass
@@ -65,19 +66,24 @@ $data_state->{"t2star"}->{"bitdepth"}="Int16";
 #$data_state->{"labels"}->{"bitdepth"}="UInt8";# Not all labels are 8bit, so this is dangerous.
 
 $data_state->{"ad"}->      {"range"}=[  0.0, 0.001]; #good for chass
-#$data_state->{"adc"}->     {"range"}=[0.0, 0.001]; #good for chass
+$data_state->{"e1"}->      {"range"}=$data_state->{"ad"}->      {"range"};
+
 $data_state->{"b0"}->      {"range"}=[ 1500,20000];
 $data_state->{"chi"}->     {"range"}=[-0.20,0.20];
 $data_state->{"dwi"}->     {"range"}=[ 1500,20000];
+#$data_state->{"dwi"}->     {"range"}=[ 500,2000];# more commonly dwi is lower range. Not setting this yet, but maybe in future.
 $data_state->{"fa"}->      {"range"}=[  0.0, 0.7];
 $data_state->{"fa_color"}->{"range"}=[    0,170];
 $data_state->{"gre"}->     {"range"}=[ 1500,20000];
 $data_state->{"labels"}->  {"range"}=[    0,255];
 $data_state->{"md"}->      {"range"}=[    0, 0.001];
+$data_state->{"adc"}->     {"range"}=$data_state->{"md"}->      {"range"};
 $data_state->{"t2star"}->  {"range"}=[ 1500,20000];
 $data_state->{"rd"}->      {"range"}=[ 0.0, 0.001];
 
 
+# This ct number is just a guess, and probably a bad one. THis is baed on the naughty whole mouse body ct's which were erroneosuly 8bit
+$data_state->{"ct"}->  {"range"}=[    0,30];
 
 
 Main();
@@ -226,7 +232,6 @@ sub create_nhdr {
 	#
 	# create output data.
 	#
-	
 	my $slicer_app="/Applications/AtlasViewer20170316_Release.app/Contents/MacOS/atlasviewer";
 	$slicer_app="/Applications/Slicer-4.7.0-2017-05-02.app/Contents/MacOS/Slicer";
 	if ( ! -f $slicer_app ) {
@@ -257,21 +262,26 @@ sub create_nhdr {
 	if (! exists($data_state->{$abrev}->{"range"} ) ){
 	    $lc->print_headfile();
 	    #Data::Dump::dump($lc);exit;
-    	    confess ("Unknown abrev '$abrev'\n");
+	    printd(5,"Unknown abrev '$abrev' for file $input\n");
+	    next;
+    	    confess ("Unknown abrev '$abrev' for file $input\n");
 	}
 	
 	#
 	# add min/max to nhdr.
-	#
-	
+	#	
 	#$cmd="if [ `grep -c 'min:=' $output` -eq 0 ]; then echo 'min:=$data_ranges{$abrev}[0]' >> $output ; fi";
 	#print($cmd."\n");qx/$cmd/;
 	#$cmd="if [ `grep -c 'max:=' $output` -eq 0 ]; then echo 'max:=$data_ranges{$abrev}[1]' >> $output ; fi";
 	#print($cmd."\n");qx/$cmd/;
-
 	my $v_hr={} ;
 	$v_hr->{"min"}=$data_state->{$abrev}->{"range"}[0];
 	$v_hr->{"max"}=$data_state->{$abrev}->{"range"}[1];
+	
+	# Any min/max we encode is clobbered by passing through dirty old slicer code!!!!!
+	# lets try to retrive that with our handy mandy function candy.
+	$v_hr=read_nhdr_fields($input,$v_hr,':=');
+
 	update_nhdr($output,$v_hr,':=');
 	#last;
     }
@@ -411,18 +421,60 @@ sub unrel_path {
     return join("/",@o_f);
 }
 
-sub update_nhdr {
-    my ($hdr,$var_hash_ref,$sigil)=@_;
+
+sub read_nhdr_fields {
+    my($hdr,$var_hash_ref,$sigil)=@_;
+    # taking the $hdr path, and the variable hash ref.
+    my @lines;
+    load_file_to_array($hdr,\@lines);
     if (! defined $sigil){
 	$sigil=':=';
     }
     my $var_hr = { %$var_hash_ref };# copy hash so we can destroy it 8) .
+
+    my $err=1;
+    my @lines;
+    load_file_to_array($hdr,\@lines);
+    chomp(@lines);
+    
+    my @vars=keys(%$var_hr);
+    my $reg=join('|',@vars);
+    my $line='';
+    for $line(@lines) {
+	if ( $line !~ /^$reg[^\w]+/ ){
+	    # no match, not interested
+	} else {
+	    # existing, do update remove from hash
+	    foreach ( @vars){ #check which var we found.
+		if ( $line =~ /^$_[^\w]+/ ){
+		    print("Found $_ line $line with value ");
+		    #$line=~/^([^=]+).*/;
+		    #$line=$1."=".$var_hr->{$_};
+		    #$line=~/^[^=]+(.*)/; #includes the equals(doh)
+		    $line=~/^($_[^\w])([^=])*=+(.*)$/;
+		    print("$3\n");
+		    $var_hr->{$_}=$3;
+		    #delete $var_hr->{$_};
+		}
+	    }
+	}
+    }
+    return $var_hr;
+}
+
+sub update_nhdr {
+    my ($hdr,$var_hash_ref,$sigil)=@_;
     # taking the $hdr path, and the variable hash ref.
+    if (! defined $sigil){
+	$sigil=':=';
+    }
+    my $var_hr = { %$var_hash_ref };# copy hash so we can destroy it 8) .
     my $err=1;
     my @lines;
     my @output;
     load_file_to_array($hdr,\@lines);
     chomp(@lines);
+    
     my @vars=keys(%$var_hr);
     my $reg=join('|',@vars);
     my $line='';
@@ -430,24 +482,27 @@ sub update_nhdr {
 	if ( $line !~ /^$reg[^\w]+/ ){
 	    push(@output,$line."\n");
 	} else {
-	    # existing, do update
-	    foreach ( @vars){
-		if ( $line =~ /^$_[^\w]+/ ){
-		    print("Updating $_ line $line with ");
-		    $line=~/^([^=]+).*/;
-		    $line=$1."=".$var_hr->{$_};
-		    print("$line\n");
+	    # existing, do update remove from hash
+	    foreach ( @vars ) {
+		if ( $line =~ /^$_[^\w]+/ ) {
+		    print("Updating $_ line ($line) with ");
+		    #$line=~/^([^=]+).*/;
+		    #$line=$1."=".$var_hr->{$_};
+		    $line=~/^($_[^\w])([^=])*=+(.*)$/;
+		    $line=$_.$sigil.$var_hr->{$_};#$2."=" instad of sigil.
+		    print("$_ -> ($line)\n");
 		    push(@output,$line."\n");
 		    delete $var_hr->{$_};
 		}
 	    }
 	}
     }
-    
+
+    # any which didnt exist, add them now.
     foreach (keys(%$var_hr) ) {
-	print("Updating $_ line with ");
+	print("Adding $_ line ");
 	$line=$_.$sigil.$var_hr->{$_};
-	print("$line\n");
+	print("($line)\n");
 	push(@output,$line."\n");
 	
     }
