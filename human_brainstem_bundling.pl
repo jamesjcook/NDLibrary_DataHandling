@@ -21,7 +21,7 @@ require pipeline_utilities;
 #use civm_simple_util qw(load_file_to_array get_engine_constants_path printd whoami whowasi debugloc $debug_val $debug_locator);# debug_val debug_locator);
 #use civm_simple_util qw(mod_time load_file_to_array sleep_with_countdown $debug_val $debug_locator);
 
-my $test_mode=3;
+my $test_mode=8;
 # the source tree is where our item lives
 my $source_tree="/Volumes/DataLibraries";
 
@@ -35,7 +35,10 @@ my $source_branch="$source_tree/$branch_name";
 my $dest_forest="/Volumes/DataLibraries/_AppStreamLibraries";
 
 # One thing in our forest is this bundle setup stuff.
-my $bundle_setup="$dest_forest/BundleSetup";
+my $bundle_setup="/Volumes/DataLibraries/_AppStreamSupport/BundleSetup";
+
+# where our result complete bundle will end up.
+my $bundle_forest="/Volumes/DataLibraries/_AppStreamBundles";
 
 ###
 # Look at Source, get version and lib name so we can set variable dest
@@ -268,7 +271,7 @@ run_and_watch($cmd) if $test_mode<=8;
 # bundling - put whole thing in zip
 # Should pick the library item number from the
 
-$output_path="$dest_forest/CIVM-17002${version}.zip";
+$output_path="$bundle_forest/CIVM-17002${version}.zip";
 #use File::Spec qw(splitdir);
 #my @bparts = File::Spec->splitdir( $bundle_dest );
 #$bundle_nme=pop(@bparts);
@@ -280,7 +283,7 @@ run_and_watch($cmd) if $test_mode<=9;
 
 
 # 
-print("Bundling Complete for $LibName\n\t # -> $bundle_dest ");
+print("Bundling Complete for $LibName\n\t # -> $bundle_dest \n\n # -> $output_path \n");
 exit;
 sub run_cmd {
     print("start $cmd\n");die;
