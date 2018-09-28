@@ -1,25 +1,48 @@
 #!/usr/bin/perl
+# an automatic data cleaner operating in stages
+# Taking an item in source_tree(source_tree, branch_name)
+# 1) make a new tree (reduced_tree) with only that item and branches/leaves it relies on.
+# 2) replicate all meta data from reduced tree into converted tree. 
+# 3) convert reduced_tree image files into nhdr files in converted tree which have gray levels set in their nhdrs.
+#
 use strict;
 use warnings;
+
+use Carp;
+use Cwd;
+use File::Path qw(make_path);
+use File::Spec qw(splitdir);
+use Scalar::Util qw(openhandle);
 
 use Env qw(RADISH_PERL_LIB );
 use lib split(':',$RADISH_PERL_LIB);
 require Headfile;
 require pipeline_utilities;
 #use civm_simple_util qw(load_file_to_array get_engine_constants_path printd whoami whowasi debugloc $debug_val $debug_locator);# debug_val debug_locator);
-use civm_simple_util qw(mod_time load_file_to_array sleep_with_countdown $debug_val $debug_locator);
+#use civm_simple_util qw(mod_time load_file_to_array sleep_with_countdown $debug_val $debug_locator);
 
-my $test_mode=0;
-my $reduce_source="/Volumes/DataLibraries/040Human_Brainstem";
-my $partial_dest="/Volumes/DataLibraries/_AppStreamLibraries";
-my $bundle_setup="$partial_dest/BundleSetup";
+my $test_mode=3;
+# the source tree is where our item lives
+my $source_tree="/Volumes/DataLibraries";
+
+# this is a branch or the input tree
+my $branch_name="040Human_Brainstem";
+my $source_branch="$source_tree/$branch_name";
+
+# this is a forest of trees which are not related and should not affect one another.
+# We're trying to grab a single branch of our input tree, and make a new tree in this forest for just that branch.
+# There are other items in this forest which should not be affected by our work here. 
+my $dest_forest="/Volumes/DataLibraries/_AppStreamLibraries";
+
+# One thing in our forest is this bundle setup stuff.
+my $bundle_setup="$dest_forest/BundleSetup";
 
 ###
-# Look at Source , get version and lib name so we can set variable dest
+# Look at Source, get version and lib name so we can set variable dest
 my ($ptxt,$version,$LibName);
 {
     my @fa;
-    load_file_to_array("$reduce_source/lib.conf",\@fa);
+    load_file_to_array("$source_branch/lib.conf",\@fa);
     chomp(@fa);
     #my @redulist=grep(/^(?:\s)*(Path=v[0-9]{4}(?:-[0-9]{2}){2})/,@fa);
     my @pathlist;
@@ -36,14 +59,14 @@ my ($ptxt,$version,$LibName);
     }
 
     if (scalar($#pathlist)>-1){
-        #print("$reduce_source/lib.conf:".scalar(@pathlist)."\n".join(':',@pathlist)."\n");
+        #print("$source_branch/lib.conf:".scalar(@pathlist)."\n".join(':',@pathlist)."\n");
         ($ptxt,$version)=split('=',$pathlist[$#pathlist]);
         $version="_".trim($version);
     } else {
         $version="";
     }
     if (scalar($#namelist)>-1){
-        #print("$reduce_source/lib.conf:".scalar(@namelist)."\n".join(':',@namelist)."\n");
+        #print("$source_branch/lib.conf:".scalar(@namelist)."\n".join(':',@namelist)."\n");
         ($ptxt,$LibName)=split('=',$namelist[$#namelist]);
         $LibName=lc(trim($LibName));
     } else {
@@ -66,84 +89,88 @@ my ($ptxt,$version,$LibName);
 # So its inputs get to be simpler, and so does that part to fhte work.
 # 
 my $conv_source="";#/Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mouse_brain";
-my @sdirs = File::Spec->splitdir( $reduce_source );
+my @sdirs = File::Spec->splitdir( $source_branch );
 if ($LibName eq "" ){
     $LibName=$sdirs[-1];
 } else {
     #print("LibName is set to $LibName, defacto alt would be $sdirs[-1]\n");
 }
-my $reduce_dest="$partial_dest/DataLibraries_$LibName$version/$sdirs[-1]";
-my @ddirs = File::Spec->splitdir( $reduce_dest );
-print("Dir trimming source and dest\n".
-      "\t\t$reduce_source\n".
-      "\t\t$reduce_dest\n");
-while($sdirs[$#sdirs] eq $ddirs[$#ddirs] && $#sdirs>=0 && $#ddirs>=0){
-    my $d1=pop(@sdirs);
-    $d1=pop(@ddirs);
-    print("\t$d1\n");
+my $reduced_tree="$dest_forest/DataLibraries_$LibName$version";
+my $dest_branch="$reduced_tree/$sdirs[-1]";
+
+if ( 0 ) {
+    my @ddirs = File::Spec->splitdir( $dest_branch );
+    print("Dir trimming source and dest\n".
+          "\t\t$source_branch\n".
+          "\t\t$dest_branch\n");
+    while($sdirs[$#sdirs] eq $ddirs[$#ddirs] && $#sdirs>=0 && $#ddirs>=0){
+        my $d1=pop(@sdirs);
+        $d1=pop(@ddirs);
+        print("\t$d1\n");
+    }
+    #print "i$conv_source";
+    $conv_source=File::Spec->catdir(@ddirs);
+    #print " o$conv_source\n";
 }
-#print "i$conv_source";
-$conv_source=File::Spec->catdir(@ddirs);
-#print " o$conv_source\n";
-
-my $conv_dest="${conv_source}_nhdr"; # THIS SHOULD NOT END IN SLASH!!(rsync)
-my $bundle_dest="$partial_dest/Bundle_${LibName}${version}_nhdr";
+$conv_source=$reduced_tree;# In the future this var may be eliminated to stream line things. 
+my $converted_tree="${conv_source}_nhdr"; # THIS SHOULD NOT END IN SLASH!!(rsync)
+my $bundle_dest="$dest_forest/Bundle_${LibName}${version}_nhdr";
 ###
-
 
 ####
 # BEGIN WORK.
 ####
-print("Outputs will be based in $partial_dest\n".
-      "reducing $reduce_source -> $reduce_dest\n".
-      "will convert $conv_source -> $conv_dest\n".
-      "will bundle $conv_dest -> $bundle_dest\n");
-print("Are these the same?\n".# No they're not becuase conv_source is a full tree, and reduce_dest is a specific index.
-      "\t$reduce_dest\n".
-      "\t$conv_source\n");
-die;
+print("Outputs will be based in $dest_forest\n".
+      #"reducing $source_branch -> $dest_branch\n".
+      "reducing $branch_name in $source_tree into $reduced_tree\n".
+      #"will convert $conv_source -> $converted_tree\n".
+      "which we'll convert to $converted_tree\n".
+      #"will bundle $converted_tree -> $bundle_dest\n");
+      "to be bundled into $bundle_dest\n");
 ### 
 # Perform reduciton using LibManager, with high debugging.
+# WARNING LibManager is DESTRUCTIVE of the dest!
 my $cmd="";
-$cmd="./LibManager.pl -d45 $reduce_source $reduce_dest";
+# We're changing over libmanager to have a simpler convention and therefore be less confusing.
+# new convention is source_tree,  reduced_tree, item
+#$cmd="./LibManager.pl -d45 $source_branch $dest_branch";
+$cmd="./LibManager.pl -d45 $source_tree $reduced_tree $branch_name";
 print($cmd."\n");
-run_cmd($cmd) if $test_mode<=1;
+run_and_watch($cmd) if $test_mode<=1;
 ###
 
 ###
 # Create _nhdr version of library, cloning all the meta data
 #  --exclude *tif , Switched to included tif files.
-$cmd="rsync --exclude nrrd --exclude *nii* --exclude *nhdr --exclude *gz* --delete -axv $conv_source/ $conv_dest";
+$cmd="rsync --exclude nrrd --exclude *nii* --exclude *nhdr --exclude *gz* --delete -axv $conv_source/ $converted_tree";
 print($cmd."\n");
-run_cmd($cmd) if $test_mode<=2;
+run_and_watch($cmd) if $test_mode<=2;
 
 ###
 # Convert data files into _nhdr library using LibConv
-$cmd="./LibConv.pl $conv_source $conv_dest";
-print($cmd."\n");die;
-run_cmd($cmd) if $test_mode<=3;
+$cmd="./LibConv.pl $reduced_tree $converted_tree";
+print($cmd."\n");
+run_and_watch($cmd) if $test_mode<=3;
 ###
-
 
 ###
 # strip comments from conf files
-$cmd='sed -i \'\' \'/^[[:space:]]*#/d;s/#.*//\' '."\$(find $conv_dest -name lib.conf -type f)";
+$cmd='sed -i \'\' \'/^[[:space:]]*#/d;s/#.*//\' '."\$(find $converted_tree -name lib.conf -type f)";
 print($cmd."\n");
-run_cmd($cmd) if $test_mode<=4;
+run_and_watch($cmd) if $test_mode<=4;
 ###
 
 ###
 # remove backup (bak) files
-$cmd="find $conv_dest -name \"*.bak\" -type f -exec rm {} \\; -print";
+$cmd="find $converted_tree -name \"*.bak\" -type f -exec rm {} \\; -print";
 print($cmd."\n");
-run_cmd($cmd) if $test_mode<=5;
+run_and_watch($cmd) if $test_mode<=5;
 ###
 
 ###
 # bundling - mkdir
 if( ! -d $bundle_dest) {
     # Make sure directoy is avaiable
-    use File::Path qw(make_path);
     my %dir_opts=('chmod' => 0777);
     if ( ! -d $bundle_dest ) {
         print("\tmkdir -p $bundle_dest\n");
@@ -154,7 +181,7 @@ if( ! -d $bundle_dest) {
 
 ### 
 # bundling - find versioned data. 
-$cmd="find $conv_dest -name \"v*\" -type d -print";
+$cmd="find $converted_tree -name \"v*\" -type d -print";
 print("Finding data with comamnd($cmd).\n");
 print("\n---\nVersionied Data:\n---");
 my @bundles=qx($cmd);
@@ -165,9 +192,8 @@ print("\n\n---\nBundles_to_create:\n---\n\t".join("\n\t",@bundles)."\n");
 
 ###
 # bundling - bundle up each versioned piece
-use Cwd;
 my $code_dir = getcwd();
-use Scalar::Util qw(openhandle);
+
 my $force_path_libname=1;
 my $output_path;
 foreach (@bundles) {
@@ -177,7 +203,6 @@ foreach (@bundles) {
     # Get the libraries displayname from lib.conf if it has one.
     # for some the lib.conf is deeper in the directory chain. Not sure how i want to handle that.
     my $file = "$_/lib.conf";
-    use Carp;
     open my $fh, '<', $file or carp "Could not open '$file' $!\n";
     while ( openhandle($fh) && (my $line = <$fh>)) {
         chomp $line;
@@ -188,7 +213,6 @@ foreach (@bundles) {
     }
     close($fh);
     # Get the path component names,
-    use File::Spec qw(splitdir);
     my @dirs = File::Spec->splitdir( $_ );
     $version=pop(@dirs);
     if ( ! defined $lib_name || $force_path_libname) {
@@ -209,17 +233,17 @@ foreach (@bundles) {
     my $testing="-sc"; # when on, will not do zip
     $testing="";
     print("Bundling! -> $output_path\n") if $test_mode<=6;
-    chdir $conv_dest;
-    # need to shorten $output_path by $conv_dest
+    chdir $converted_tree;
+    # need to shorten $output_path by $converted_tree
     my $pl=length($_);
-    $_=~s:^$conv_dest/::x;
+    $_=~s:^$converted_tree/::x;
     if( $pl ==  length($_)) {
         die "Path reduction failed!";
     } else{
         print("  rel_path:$_\n");}
     $cmd="zip $testing -o -v -FS -r $output_path $_";
-    print("cd $conv_dest;$cmd;cd $code_dir;\n");# show command to user
-    run_cmd($cmd) if $test_mode<=6; 
+    print("cd $converted_tree;$cmd;cd $code_dir;\n");# show command to user
+    run_and_watch($cmd) if $test_mode<=6; 
     chdir $code_dir;
 }
 #
@@ -228,30 +252,30 @@ foreach (@bundles) {
 # bundling - non-versioned portions
 $output_path="$bundle_dest/Human_Brainstem_examples.zip";
 print("Bundling! -> $output_path\n") if $test_mode<=6;
-chdir $conv_dest;
+chdir $converted_tree;
 $cmd="zip -o -v -FS -r $output_path 000ExternalAtlasesBySpecies ExternalAtlases";
-print("cd $conv_dest;$cmd;cd $code_dir;\n");# show command to user
-run_cmd($cmd) if $test_mode<=6;
+print("cd $converted_tree;$cmd;cd $code_dir;\n");# show command to user
+run_and_watch($cmd) if $test_mode<=6;
 
 ###
 # bundling add setup code.
 $cmd="rsync -axv $bundle_setup/ $bundle_dest";
 print($cmd."\n");
-run_cmd($cmd) if $test_mode<=8;
+run_and_watch($cmd) if $test_mode<=8;
 # 
 
 ### 
 # bundling - put whole thing in zip
 # Should pick the library item number from the
 
-$output_path="$partial_dest/CIVM-17002${version}.zip";
+$output_path="$dest_forest/CIVM-17002${version}.zip";
 #use File::Spec qw(splitdir);
 #my @bparts = File::Spec->splitdir( $bundle_dest );
 #$bundle_nme=pop(@bparts);
 $cmd="zip -o -v -FS -r $output_path *";# cut bundle dest down to just final part. 
 print("cd $bundle_dest;$cmd;cd $code_dir;\n");# show command to user
 chdir $bundle_dest;
-run_cmd($cmd) if $test_mode<=9;
+run_and_watch($cmd) if $test_mode<=9;
 
 
 
@@ -261,11 +285,5 @@ exit;
 sub run_cmd {
     print("start $cmd\n");die;
     return run_and_watch(@_,"\t");
-    my ($cmd)=@_;
-    open(my $fh, "-|", "$cmd");
-    while ( openhandle($fh) && (my $line = <$fh>)) {
-        print("\t".$line); }
-    
-    close($fh);
-
 }
+1; 
