@@ -110,7 +110,10 @@ def main(argv):
         myFilter = sitk.RescaleIntensityImageFilter()
         myFilter.SetDebug(False)
         myFilter.SetNumberOfThreads(8)
-        in_im=sitkUtils.PullFromSlicer(inname)
+        # deprecated
+        #in_im=sitkUtils.PullFromSlicer(inname)
+        in_im=sitkUtils.PullVolumeFromSlicer(inname)
+        
         print "execute rescale"
         out_im=myFilter.Execute(in_im,0.0,im_max)
         print "Setting up cast filter"
