@@ -16,7 +16,7 @@ use lib split(':',$RADISH_PERL_LIB);
 require Headfile;
 require pipeline_utilities;
 #use civm_simple_util qw(load_file_to_array get_engine_constants_path printd whoami whowasi debugloc $debug_val $debug_locator);# debug_val debug_locator);
-use civm_simple_util qw(printd mod_time  sleep_with_countdown load_file_to_array write_array_to_file $debug_val $debug_locator);
+use civm_simple_util qw(printd mod_time sleep_with_countdown load_file_to_array write_array_to_file $debug_val $debug_locator);
 $debug_val=5;
 
 
@@ -27,7 +27,8 @@ my $can_dump = eval {
     1;
 };
 
-#### DATARANGES IS VESTIGIAL CODE. 
+#### DATARANGES IS VESTIGIAL CODE.
+# It remains for reference of how we did things in the past. 
 our  %data_ranges=(
     #'ad'=> [0.0, 0.002],
     'ad'=> [0.0, 0.001], #good for chass
@@ -81,13 +82,12 @@ $data_state->{"adc"}->     {"range"}=$data_state->{"md"}->      {"range"};
 $data_state->{"t2star"}->  {"range"}=[ 1500,20000];
 $data_state->{"rd"}->      {"range"}=[ 0.0, 0.001];
 
-
-# This ct number is just a guess, and probably a bad one. THis is baed on the naughty whole mouse body ct's which were erroneosuly 8bit
+# This ct number is just a guess, and probably a bad one. 
+# THis is baed on the naughty whole mouse body ct's which were erroneosuly 8bit
 $data_state->{"ct"}->  {"range"}=[    0,30];
 
 
-Main();
-exit;
+exit Main();
 
 sub Main {
     my %opts;
@@ -104,13 +104,14 @@ sub Main {
     }
     if ( $#errors>=0 ) {
 	print(join("\n",@errors)."\n");
-	return;
+	return 1;
     }
     print("source_path:\t$source_path\n");
     print("dest_path:\t$dest_path\n");
     my $files=discover_files($source_path);
     # makes hash of name=path,ext, can opeht with path+ext
     create_nhdr($files,$source_path,$dest_path,\%opts);
+    return 0;
 }
 
 
@@ -234,11 +235,14 @@ sub create_nhdr {
 	#
 	my $slicer_app="/Applications/AtlasViewer20170316_Release.app/Contents/MacOS/atlasviewer";
 	$slicer_app="/Applications/Slicer-4.7.0-2017-05-02.app/Contents/MacOS/Slicer";
+        $slicer_app="/Volumes/james/Applications/Slicer-4.9.0-2018-07-12.app/Contents/MacOS/Slicer";
+        
 	if ( ! -f $slicer_app ) {
+            die "This slicer code wont work without being mounted on a modern mac!\n MISSING:$slicer_app\n";
 	    cluck("Slicer wasnt found where expected, trying a mounted panoramaHD");
 	    $slicer_app="/Volumes/panoramaHD".$slicer_app;
 	}
-
+        
 	my $cmd="$slicer_app --exit-after-startup --no-splash --no-main-window --python-script /Volumes/DataLibraries/_AppStreamSupport/DataHandlers/slicer_data_conv.py -i $input -o $output ";
 	if ( exists($data_state->{$abrev}->{"bitdepth"} ) ){
 	    $cmd=$cmd." --bitdepth ".$data_state->{$abrev}->{"bitdepth"};
