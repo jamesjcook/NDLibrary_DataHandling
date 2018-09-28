@@ -157,19 +157,21 @@ sub create_nhdr {
     for my $fn (keys %$files) {
 	print("$fn: $files->{$fn}->{type}\n");
 	my $input=$files->{$fn}->{"path"};
+	
 	my $output=$input;
-	my $find=quotemeta($source);
 	#$output=~ s/$source/$dest/; # this fails because metachars
+	my $find=quotemeta($source);
 	$output=~ s/$find/$dest/;
 	#print("$source\n$dest\n");
 	#print("$input\n$output\n"); exit;
-	$input=$input.$files->{$fn}->{"type"};
 
+	# put the extension back onto our input
+	$input=$input.$files->{$fn}->{"type"};
 
 	#
 	# Backup input nhdr
 	#
-	# if not existing.
+	# if its a nhdr existing.
 	if( exists($files->{$fn}->{"nhdr"}) ) {
 	    my $backup=$output.".bak.nhdr";
 	    #$backup=~s/nhdr/bak.nhdr/x;
@@ -248,19 +250,21 @@ sub create_nhdr {
 	    $cmd=$cmd." --bitdepth ".$data_state->{$abrev}->{"bitdepth"};
 	}
 	printd(5,"$cmd\n");
-	if ( ! -f $outdata || exists $opts->{"f"} 
-	     || -M $outdata > -M $input ) {
-	    
-	    if ( -f $output && -M $output > -M $input ) {
-		print("Time update because $input -> $output\n");
-	    } elsif ( -f $output &&  -M $outdata > -M $input ) {
-		print("Time update because $input -> $outdata\n");
+
+	# when our output isnt there, OR
+	# when out input is newer, OR
+	# force bit is set.
+	#  -- run the command...
+	# (can replace with our "better" run_on_update
+	my @cmd_out=();
+	{
+	    my @c_in=($input);
+	    my @c_out=($outdata);
+	    my $force=0;
+	    if ( exists $opts->{"f"} ) {
+		$force=1;
 	    }
-	    #print("make nhdr $input $output\n");
-	    qx/$cmd/; # make new file
-	    
-	} else {
-	    printd(30,"data exists for $output\n");
+	    @cmd_out=run_on_update($cmd,\@c_in,\@c_out,$force,0);
 	}
 
 	if (! exists($data_state->{$abrev}->{"range"} ) ){
@@ -284,9 +288,11 @@ sub create_nhdr {
 	
 	# Any min/max we encode is clobbered by passing through dirty old slicer code!!!!!
 	# lets try to retrive that with our handy mandy function candy.
-	$v_hr=read_nhdr_fields($input,$v_hr,':=');
-
-	update_nhdr($output,$v_hr,':=');
+	# EXCEPT THIS IS FOR NHDRS, and We dont want NII's to use it!
+	if ( $files->{$fn}->{"type"} =~ /[.]?(nrrd|nhdr)$/x ) {
+	    $v_hr=read_nhdr_fields($input,$v_hr,':=');
+	    update_nhdr($output,$v_hr,':=');
+	}
 	#last;
     }
 }
@@ -429,13 +435,10 @@ sub unrel_path {
 sub read_nhdr_fields {
     my($hdr,$var_hash_ref,$sigil)=@_;
     # taking the $hdr path, and the variable hash ref.
-    my @lines;
-    load_file_to_array($hdr,\@lines);
     if (! defined $sigil){
 	$sigil=':=';
     }
     my $var_hr = { %$var_hash_ref };# copy hash so we can destroy it 8) .
-
     my $err=1;
     my @lines;
     load_file_to_array($hdr,\@lines);
@@ -475,10 +478,10 @@ sub update_nhdr {
     my $var_hr = { %$var_hash_ref };# copy hash so we can destroy it 8) .
     my $err=1;
     my @lines;
-    my @output;
     load_file_to_array($hdr,\@lines);
     chomp(@lines);
     
+    my @output;    
     my @vars=keys(%$var_hr);
     my $reg=join('|',@vars);
     my $line='';
