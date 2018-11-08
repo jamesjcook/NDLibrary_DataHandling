@@ -373,32 +373,32 @@ sub lib_parse
 	    $work_list->{'lib.conf'}=$lib_template{'lib.conf'};
 	}
         
-	my $lib_conf=load_lib_conf($conf_inpath);
-	my $lib_path=$lib_conf->get_value('Path');
-	##
+	
+        ##
 	# Load parent libconfs..n
 	##
 	#my @parent_confs=();
+        my $lib_conf=new Headfile('ro','nf');
 	my @conf_stack=();
 	if( defined $parent_confs) {
 	    @conf_stack=split(',',$parent_confs);
-	    my $own_conf=$lib_conf;
+	    #my $own_conf=$lib_conf;
 	    #foreach @conf_stack... load and overwrite.
-	    my $par_conf=new Headfile('ro','nf');
 	    foreach (@conf_stack) {
 		my $nx_conf=load_lib_conf($_);
 		$nx_conf->delete_key('Path');
 		# this is the only key which may cause trouble.in
 		# That is becuase it is not straight inherrited, on load it is followed,
 		# and then blanked any time its encountered.
-		$par_conf->copy_in($nx_conf);
+		$lib_conf->copy_in($nx_conf);
 	    }
-	    $par_conf->copy_in($own_conf);
-	    $lib_conf=$par_conf;
             #$lib_conf->set_value("ParConf","$conf_stack[$#conf_stack]");
 	}
+        my $own_conf=load_lib_conf($conf_inpath);
+        $lib_conf->copy_in($own_conf);
 	$lib_conf->print();
-	
+        
+        my $lib_path=$lib_conf->get_value('Path');	
 	my $lib_name=$lib_conf->get_value('LibName');
 	my $file_pat=$lib_conf->get_value('FilePattern');
 	my $test_bool=$lib_conf->get_value('TestingLib');#=true
