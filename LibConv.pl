@@ -267,39 +267,52 @@ sub create_nhdr {
 	    @cmd_out=run_on_update($cmd,\@c_in,\@c_out,$force,0);
 	}
 
-	if (! exists($data_state->{$abrev}->{"range"} ) ){
-	    $lc->print_headfile();
-	    #Data::Dump::dump($lc);exit;
-	    printd(5,"Unknown abrev '$abrev' for file $input\n");
-	    next;
-    	    confess ("Unknown abrev '$abrev' for file $input\n");
-	}
-	
-	#
+        #
 	# add min/max to nhdr.
-	#	
-	#$cmd="if [ `grep -c 'min:=' $output` -eq 0 ]; then echo 'min:=$data_ranges{$abrev}[0]' >> $output ; fi";
-	#print($cmd."\n");qx/$cmd/;
-	#$cmd="if [ `grep -c 'max:=' $output` -eq 0 ]; then echo 'max:=$data_ranges{$abrev}[1]' >> $output ; fi";
-	#print($cmd."\n");qx/$cmd/;
-	my $v_hr={} ;
-	$v_hr->{"min"}=$data_state->{$abrev}->{"range"}[0];
-	$v_hr->{"max"}=$data_state->{$abrev}->{"range"}[1];
-	
-	# Any min/max we encode is clobbered by passing through dirty old slicer code!!!!!
-	# lets try to retrive that with our handy mandy function candy.
-	# EXCEPT THIS IS FOR NHDRS, and We dont want NII's to use it!
-	if ( $files->{$fn}->{"type"} =~ /[.]?(nrrd|nhdr)$/x ) {
+	#
+        # Any min/max previously encoded is clobbered by passing through dirty old slicer code!!!!!
+        # We check each possible source of a good min/max for the volume.
+        # v_hr is an i/o hash setting what variables we'll read from the nhdr.
+	my $v_hr={};
+        # Check if we have an available canned min/max by abbreviation.
+        # this'll be overridden by any libconf value, or nhdr value.
+        if (! exists($data_state->{$abrev}->{"range"} ) ){
+	    $lc->print_headfile();
+	    printd(5,"Unknown abrev '$abrev' for file $input\n");
+            $v_hr->{"min"}="test";
+            $v_hr->{"max"}="test";
+	} else {
+            $v_hr->{"min"}=$data_state->{$abrev}->{"range"}[0];
+            $v_hr->{"max"}=$data_state->{$abrev}->{"range"}[1];
+        }
+        # If the libconf mentions a min/max it is more reasonable than the guesses, so we'll use that.
+        # this'll be overridden by any nhdr value.
+        if( $lc->get_value("min") !~ /NO_KEY/ 
+            && $lc->get_value("max") !~ /NO_KEY/ ){
+            $v_hr->{"min"}=$lc->get_value("min");
+            $v_hr->{"max"}=$lc->get_value("max");
+        }
+        # The most reliable info is an input nhdr.
+        # If we're an nhdr/nrrd try to get our min/max fields,
+        # failure will leave us without updated fields. 
+        if ( $files->{$fn}->{"type"} =~ /[.]?(nrrd|nhdr)$/x ) {
 	    $v_hr=read_nhdr_fields($input,$v_hr,':=');
-	    update_nhdr($output,$v_hr,':=');
-	}
-	#last;
+        } 
+        # now almost always ends up with encode min/max,
+        # from either from abbrev guesses, the lib conf, or the source nrrd/nhdr.
+        if ( $v_hr->{"min"} ne "test"
+             && $v_hr->{"max"} ne "test" ) {
+            print("Encoding min/max as found.");
+            update_nhdr($output,$v_hr,':=');
+        }
+
     }
 }
 
 sub get_conf {
     my ($source, $data_path)=@_;
-    # starting source, there will be a conf, 1-2 levels deep.
+    # given a source forest
+    # find and load the confstack which will be in effect for data path ( a folder in which data is sitting).
     
     # current path,
     # 
@@ -325,13 +338,15 @@ sub get_conf {
     my $cmd="find  -E '$source' -iname 'lib.conf' ";
     my @file_list=`$cmd`;
     chomp(@file_list);
-    if( $#file_list<0 ){error_out("Could find confs $source");}
+    if( $#file_list<0 ){error_out("Could find confs in $source");}
     @file_list=sort(@file_list);
     printd(40,"Conf search order:\n".join("\n",@file_list)."\n");
-    my $data_path_a= abs_path($data_path);
-    #$data_path_a=unrel_path($data_path);
+    # absolute data path.
+    # which apparently we're not using.
+    my $data_path_a;#= abs_path($data_path);
+    ####$data_path_a=unrel_path($data_path);
     $data_path_a=$data_path;
-    #chomp($data_path_a);
+    ####chomp($data_path_a);
     $data_path_a=~s:[\/]$::;# trim trailing slashes from path.
     $data_path_a =~ s/[^[:print:]]+//g;# remove non print chars from path
     printd(15,"Searching for '$data_path_a'\n");
@@ -342,15 +357,20 @@ sub get_conf {
 	load_file_to_array($file,\@conf_lines,$debug_val);
 	#my @foo = grep(!/^#/, @bar);
 	my @path_direct = grep(/^Path.*$/, @conf_lines);
+        # this test_status check is a big bogus, because grep doesnt do full regex's.
+        # normally, we only mention testinglib if we are one, so this should be fine.
 	my @test_status = grep(/^TestingLib.*$/, @conf_lines);
+        # if we need to check test_status better in the future, this regex should help.
+        #	if ($test_bool =~ /^([Tt][Rr][Uu][Ee]|1)$/x ) {
 	if (scalar(@test_status)>=1){
+            printd(15,"Testing  conf $file, skipping to next\n");
 	    next;}
 	if (scalar(@path_direct)>=1){
 	    if (scalar(@path_direct)>1){
 		warn('mutltiple paths found, using last');
 		sleep_with_countdown(3);
 	    }
-	    # when libraryies load, they only use the last found value for a variable. so these lines do that.
+	    # when libraries load, they only use the last found value for a variable. so these lines do that.
 	    $path_direct[$#path_direct]=~s/^Path=//;# this removes Path= from the line
 	    $path_direct[$#path_direct]=~s:[\/]$::;# trim trailing slahes from path.
 	    
@@ -359,15 +379,17 @@ sub get_conf {
 	    
 	    #$ap= abs_path($rp);
 	    $ap = unrel_path($rp);# resolves ../ entries in path by removing that and eating the next part.
-	    printd(25,"resolved path input:'$p' \n\trel:'$rp'\n\tabs:'$ap'\n");
+	    printd(25,"\tresolved path input:'$p' \n\t\trel:'$rp'\n\t\tabs:'$ap'\n");
 	} else {
+            printd(25,"\tdirect path used:'$p'\n");
 	    $ap=$p;
+            $ap=~s:[\/]$::;# trim trailing slahes from path.
 	}
 	$ap =~ s/[^[:print:]]+//g;
 	if ( $ap eq $data_path_a ) {
 	    unshift(@conf_stack,$file);
-	    printd(15,"Sucessfully found root lib.\n");
-	    printd(15,"\tchecking $p/../lib.conf\n");
+	    printd(15,"\tSucessfully found root lib.\n");
+	    printd(15,"\t\tchecking $p/../lib.conf\n");
 	    while( -f $p."/../lib.conf"){
 		#$p=$p."/..";
 		$p=~s:/+:/:gx;
