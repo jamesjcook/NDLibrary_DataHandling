@@ -20,8 +20,9 @@ require Headfile;
 require pipeline_utilities;
 #use civm_simple_util qw(load_file_to_array get_engine_constants_path printd whoami whowasi debugloc $debug_val $debug_locator);# debug_val debug_locator);
 #use civm_simple_util qw(mod_time load_file_to_array sleep_with_countdown $debug_val $debug_locator);
+use civm_simple_util qw(find_file_by_pattern);
 
-my $test_mode=8;
+my $test_mode=0;
 # the source tree is where our item lives
 my $source_tree="/Volumes/DataLibraries";
 
@@ -36,6 +37,11 @@ my $dest_forest="/Volumes/DataLibraries/_AppStreamLibraries";
 
 # One thing in our forest is this bundle setup stuff.
 my $bundle_setup="/Volumes/DataLibraries/_AppStreamSupport/BundleSetup";
+my $setup_components="Setup"; # dir in bundle_setup we stuff components.
+
+# One thing in our forest is this exec_cache.
+my $installer_store="/Volumes/DataLibraries/_Software/";
+my $installer_version="latest";
 
 # where our result complete bundle will end up.
 my $bundle_forest="/Volumes/DataLibraries/_AppStreamBundles";
@@ -141,6 +147,7 @@ $cmd="./LibManager.pl -d45 $source_tree $reduced_tree $branch_name";
 print($cmd."\n");
 run_and_watch($cmd) if $test_mode<=1;
 ###
+#die "post libmanager";
 
 ###
 # Create _nhdr version of library, cloning all the meta data
@@ -260,6 +267,7 @@ $cmd="zip -o -v -FS -r $output_path 000ExternalAtlasesBySpecies ExternalAtlases"
 print("cd $converted_tree;$cmd;cd $code_dir;\n");# show command to user
 run_and_watch($cmd) if $test_mode<=6;
 
+
 ###
 # bundling add setup code.
 $cmd="rsync -axv $bundle_setup/ $bundle_dest";
@@ -267,8 +275,58 @@ print($cmd."\n");
 run_and_watch($cmd) if $test_mode<=8;
 # 
 
+###
+# bundling - get latest exec, or specified version.
+#
+#my @b_dir_path = File::Spec->splitdir( $bundle_setup );
+# BundleSetup word missing from bundle_dest, get with splitdir, using b_dir_path end...
+# Except thats not hwo we're doing it, we're using just the plain Setup word... which is part of bundlesetup. 
+my $bundle_app_support=File::Spec->catdir(($bundle_dest,$setup_components));
+# do a print perhaps?
+#catdir(($bundle_dest,$b_dir_path[$#b_dir_path]));
+# if installer_version=latest, resolve to last file in folder.
+my $av_store=File::Spec->catdir(($installer_store,"AtlasViewerPackages","*"));
+if ( $installer_version eq "latest") {
+    #my @versions=find_file_by_pattern($av_store,'.*');
+    my @version_dirs=glob("$av_store");
+    my $newest=file_mod_extreme(\@version_dirs,"new");
+    my @td = File::Spec->splitdir( $newest );
+    $installer_version=$td[-1];
+    print("Latest:$installer_version\n");
+}
+my $installer_dir=File::Spec->catdir(($installer_store,"AtlasViewerPackages",$installer_version));
+$cmd="rsync -axv $installer_dir $bundle_app_support";
+print($cmd."\n");
+run_and_watch($cmd) if $test_mode<=9;
+$cmd="touch ".File::Spec->catdir(($bundle_app_support,"$installer_version.ver"));
+print($cmd."\n");
+run_and_watch($cmd) if $test_mode<=9;
+# potentially remove old *.ver files and maybe old ver dirs...
+
+###
+# bundling - get settings
+my $settings_dir=File::Spec->catdir(($installer_store,"AtlasViewerPackages","Settings"));
+$cmd="rsync -axv $settings_dir $bundle_app_support";
+print($cmd."\n");
+run_and_watch($cmd) if $test_mode<=9;
+
+###
+# bundling - get extensions
+my $ext_file=File::Spec->catdir(($installer_store,"applications","Slicer","Slicer-4.9.0-2018-07-12-win-amd64_extensions.7z"));
+$cmd="cp -p $ext_file $bundle_app_support";
+print($cmd."\n");
+run_and_watch($cmd) if $test_mode<=9;
+
+###
+# bundling - get qt5 missing bits.
+my $qt_file=File::Spec->catdir(($installer_store,"AtlasViewerPackages","AV_QT5_bundle.7z"));
+$cmd="cp -p $qt_file $bundle_app_support";
+print($cmd."\n");
+run_and_watch($cmd) if $test_mode<=9;
+
+
 ### 
-# bundling - put whole thing in zip
+# bundling - finalize whole thing into singular zip
 # Should pick the library item number from the
 
 $output_path="$bundle_forest/CIVM-17002${version}.zip";
@@ -278,8 +336,7 @@ $output_path="$bundle_forest/CIVM-17002${version}.zip";
 $cmd="zip -o -v -FS -r $output_path *";# cut bundle dest down to just final part. 
 print("cd $bundle_dest;$cmd;cd $code_dir;\n");# show command to user
 chdir $bundle_dest;
-run_and_watch($cmd) if $test_mode<=9;
-
+run_and_watch($cmd) if $test_mode<=10;
 
 
 # 
