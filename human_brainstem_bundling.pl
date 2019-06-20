@@ -22,7 +22,7 @@ require pipeline_utilities;
 #use civm_simple_util qw(mod_time load_file_to_array sleep_with_countdown $debug_val $debug_locator);
 use civm_simple_util qw(find_file_by_pattern);
 
-my $test_mode=0;
+my $test_mode=12;
 # the source tree is where our item lives
 my $source_tree="/Volumes/DataLibraries";
 
@@ -45,6 +45,17 @@ my $installer_version="latest";
 
 # where our result complete bundle will end up.
 my $bundle_forest="/Volumes/DataLibraries/_AppStreamBundles";
+
+
+###
+# settings for bundle installer.
+# used at very end.
+my %sv;
+$sv{'LibItemNumber'}="CIVM-17002";
+$sv{'LibIndex'}="$branch_name";
+$sv{'WinAppBundleName'}="AtlasViewer-0.4.0-da2b5d2";#-win-amd64_20171107
+$sv{'WinProgramVersion'}="20171107";
+
 
 ###
 # Look at Source, get version and lib name so we can set variable dest
@@ -302,45 +313,98 @@ $cmd="touch ".File::Spec->catdir(($bundle_app_support,"$installer_version.ver"))
 print($cmd."\n");
 run_and_watch($cmd) if $test_mode<=9;
 # potentially remove old *.ver files and maybe old ver dirs...
+my @old_versions=grep(!/$installer_version.ver/, glob($bundle_app_support."/*.ver"));
+if ( scalar(@old_version)>0 ) {
+    print("Found old versions(".join(",",@old_versions).")\n");
+    foreach (@old_versions) {
+        $_ =~s/(.*)[.]ver$/$1/g;
+        if ( $_ ne $bundle_app_support 
+         && -e $_ ) {
+            print "should remove $_ and it's ver file\n";
+            $cmd="rm -fr $_ $_.ver";
+            print($cmd."\n");
+            run_and_watch($cmd) if $test_mode<=10;
+        } 
+    }
+}
 
 ###
 # bundling - get settings
 my $settings_dir=File::Spec->catdir(($installer_store,"AtlasViewerPackages","Settings"));
 $cmd="rsync -axv $settings_dir $bundle_app_support";
 print($cmd."\n");
-run_and_watch($cmd) if $test_mode<=9;
+run_and_watch($cmd) if $test_mode<=11;
 
 ###
 # bundling - get extensions
 my $ext_file=File::Spec->catdir(($installer_store,"applications","Slicer","Slicer-4.9.0-2018-07-12-win-amd64_extensions.7z"));
 $cmd="cp -p $ext_file $bundle_app_support";
 print($cmd."\n");
-run_and_watch($cmd) if $test_mode<=9;
+run_and_watch($cmd) if $test_mode<=11;
 
 ###
 # bundling - get qt5 missing bits.
 my $qt_file=File::Spec->catdir(($installer_store,"AtlasViewerPackages","AV_QT5_bundle.7z"));
 $cmd="cp -p $qt_file $bundle_app_support";
 print($cmd."\n");
-run_and_watch($cmd) if $test_mode<=9;
+run_and_watch($cmd) if $test_mode<=11;
 
 
 ### 
 # bundling - finalize whole thing into singular zip
 # Should pick the library item number from the
 
-$output_path="$bundle_forest/CIVM-17002${version}.zip";
-#use File::Spec qw(splitdir);
-#my @bparts = File::Spec->splitdir( $bundle_dest );
-#$bundle_nme=pop(@bparts);
-$cmd="zip -o -v -FS -r $output_path *";# cut bundle dest down to just final part. 
-print("cd $bundle_dest;$cmd;cd $code_dir;\n");# show command to user
-chdir $bundle_dest;
-run_and_watch($cmd) if $test_mode<=10;
-
+#
+# encode sv hash to the setup vars file.
+#
+my $setup_vars=File::Spec->catfile($bundle_dest,"setup_vars.txt");
+# setup vars are a special name=value name2=value2 ENDECHO single line text file for the installer script.
+if ( -e $setup_vars ) {
+    my @slines=();
+    my $setup_vars_modified=0;
+    load_file_to_array($setup_vars,\@slines);
+    if( scalar(@slines)>1) {
+        warn("extra lines in the setup vars");
+    }
+    my @vars=split(' ',$slines[0]);
+    for(my $vn=0;$vn<=scalar(@vars);$vn++) {
+        my ($na,$val)=split("=",$vars[$vn]);
+        if ( defined $na  ) {
+            if (defined $val  ) {
+                if ( exists($sv{$na}) ) {
+                    if ( $val ne $sv{$na}) {
+                        print("Updating $na with $sv{$na} \n");
+                        $val=$sv{$na};
+                        $setup_vars_modified=1;
+                    }
+                }
+                $vars[$vn]="$na=$val";
+            } else {
+                $vars[$vn]="$na";
+            }
+        }
+        if ( $vars[$vn] eq 'ENDECHO' ) {
+            $vars[$vn]=" ENDECHO"; }
+    }
+    if ($setup_vars_modified == 1) {
+        $slines[0]=join(' ',@vars);
+        write_array_to_file($setup_vars,\@slines);
+    }
+    $output_path="$bundle_forest/$sv{LibItemNumber}${version}.zip";
+    #use File::Spec qw(splitdir);
+    #my @bparts = File::Spec->splitdir( $bundle_dest );
+    #$bundle_nme=pop(@bparts);
+    $cmd="zip -o -v -FS -r $output_path *";# cut bundle dest down to just final part. 
+    print("cd $bundle_dest;$cmd;cd $code_dir;\n");# show command to user
+    chdir $bundle_dest;
+    run_and_watch($cmd) if $test_mode<=12;
+    print("Bundling Complete for $LibName\n\t # -> $bundle_dest \n\n # -> $output_path \n");
+} else {
+        print("No setup_vars at $setup_vars!, Will not create new final zip!");
+}
 
 # 
-print("Bundling Complete for $LibName\n\t # -> $bundle_dest \n\n # -> $output_path \n");
+
 exit;
 sub run_cmd {
     print("start $cmd\n");die;
