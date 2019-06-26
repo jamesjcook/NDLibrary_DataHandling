@@ -8,24 +8,23 @@ use Getopt::Std;
 #use File::Basename;
 use File::Spec;
 use File::Path qw(make_path);
-use DateTime;
+#use DateTime;
 
 ### CIVM includes
 use Env qw(RADISH_PERL_LIB );
 use lib split(':',$RADISH_PERL_LIB);
-require Headfile;
-require pipeline_utilities;
+use Headfile;
+use pipeline_utilities;
 #use civm_simple_util qw(load_file_to_array get_engine_constants_path printd whoami whowasi debugloc $debug_val $debug_locator);# debug_val debug_locator);
-use civm_simple_util qw(printd mod_time sleep_with_countdown load_file_to_array write_array_to_file $debug_val $debug_locator);
+use civm_simple_util qw(printd can_dump mod_time sleep_with_countdown load_file_to_array write_array_to_file $debug_val $debug_locator);
 $debug_val=5;
 
+#mac find
+my $REGEXTYPE=" -E ";
+# gnu find
+$REGEXTYPE=" -regextype posix-extended ";    
 
-my $can_dump = eval {
-    # this little snippit checks if the cool data structure dumping code is available.
-    require Data::Dump;
-    Data::Dump->import(qw(dump));
-    1;
-};
+my $can_dump = can_dump();
 
 #### DATARANGES IS VESTIGIAL CODE.
 # It remains for reference of how we did things in the past. 
@@ -117,7 +116,7 @@ sub Main {
 
 sub discover_files{
     my ($choice_pile)=@_;
-    my $cmd="find  -E '$choice_pile' -iregex '.+nii(.gz)?|.+nhdr'";
+    my $cmd="find  '$choice_pile' $REGEXTYPE -iregex '.+nii(.gz)?|.+nhdr'";
     my $files={};
     print($cmd."\n");
     my @file_list=`$cmd`;
@@ -238,6 +237,7 @@ sub create_nhdr {
 	my $slicer_app="/Applications/AtlasViewer20170316_Release.app/Contents/MacOS/atlasviewer";
 	$slicer_app="/Applications/Slicer-4.7.0-2017-05-02.app/Contents/MacOS/Slicer";
         $slicer_app="/Volumes/james/Applications/Slicer-4.9.0-2018-07-12.app/Contents/MacOS/Slicer";
+		$slicer_app="/d/CIVM_Apps/Slicer/4.9.0-2018-07-12/Slicer.exe";
         
 	if ( ! -f $slicer_app ) {
             die "This slicer code wont work without being mounted on a modern mac!\n MISSING:$slicer_app\n";
@@ -245,7 +245,7 @@ sub create_nhdr {
 	    $slicer_app="/Volumes/panoramaHD".$slicer_app;
 	}
         
-	my $cmd="$slicer_app --exit-after-startup --no-splash --no-main-window --python-script /Volumes/DataLibraries/_AppStreamSupport/DataHandlers/slicer_data_conv.py -i $input -o $output ";
+	my $cmd="$slicer_app --exit-after-startup --no-splash --no-main-window --python-script ./slicer_data_conv.py -i $input -o $output ";
 	if ( exists($data_state->{$abrev}->{"bitdepth"} ) ){
 	    $cmd=$cmd." --bitdepth ".$data_state->{$abrev}->{"bitdepth"};
 	}
@@ -335,8 +335,8 @@ sub get_conf {
     # THIS CODE IS HOKEY AS HELL!
     # it gets Path from all libs in base directory, then resolves to correct path.
     # It looks for the exact path used.
-    my $cmd="find  -E '$source' -iname 'lib.conf' ";
-    my @file_list=`$cmd`;
+	my $cmd="find '$source' $REGEXTYPE -iname 'lib.conf' ";
+	my @file_list=`$cmd`;
     chomp(@file_list);
     if( $#file_list<0 ){error_out("Could find confs in $source");}
     @file_list=sort(@file_list);

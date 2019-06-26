@@ -8,28 +8,36 @@
 use strict;
 use warnings;
 use Getopt::Std;
-#use File::Basename;
+use File::Basename;
 use File::Spec;
 use File::Path qw(make_path);
-use DateTime;
+use Carp qw(carp croak cluck confess);
 
+# Turns out DateTime is  a HEAVYWEIGHT requiremnt :p
+# so we're going to refactor without it, we only use if for the epoc to datetime conv
+# eg, DateTime->from_epoch(epoch => $out_ts)
+#use DateTime;
+  # my $dt = DateTime->new(
+      # year       => 1966,
+      # month      => 10,
+      # day        => 25,
+      # hour       => 7,
+      # minute     => 15,
+      # second     => 47,
+      # nanosecond => 500000000,
+      # time_zone  => 'America/Chicago',
+  # );
 ### CIVM includes
 use Env qw(RADISH_PERL_LIB );
 use lib split(':',$RADISH_PERL_LIB);
-require Headfile;
-require pipeline_utilities;
+# use is superior to require :p
+use Headfile;
+use pipeline_utilities;
 #use civm_simple_util qw(load_file_to_array get_engine_constants_path printd whoami whowasi debugloc $debug_val $debug_locator);# debug_val debug_locator);
-use civm_simple_util qw(mod_time  sleep_with_countdown $debug_val $debug_locator);
+use civm_simple_util qw(can_dump mod_time printd sleep_with_countdown $debug_val $debug_locator);
 $debug_val=20;
-
-
-
-my $can_dump = eval {
-    # this little snippit checks if the cool data structure dumping code is available.
-    require Data::Dump;
-    Data::Dump->import(qw(dump));
-    1;
-};
+	
+my $can_dump = can_dump();
 
 #copy definitions
 #-rlptgoD
@@ -201,7 +209,6 @@ sub Main
 	make_path($dest_path,\%dir_opts) if $debug_val<50;
     }
     #$dest_base/$source
-    
     #my $failures = manage_lib($source_path,$dest_path);
     my $work=lib_parse($source_path,$dest_path,$opts{c});
     if ($can_dump){
@@ -432,10 +439,10 @@ sub lib_parse
 	    # this is a bandaid becuase its not clear how to make this a standard part of work.
 	    my $lib_conf_path="$inpath/$lib_path/lib.conf";
 	    my $cmd="rsync -pt --backup $conf_inpath $lib_conf_path";
-	    # print("Transfercmd:$cmd\n");exit;
+	    printd(50,"Transfercmd:$cmd\n");
 	    qx($cmd);
 	    # then run this sed on it.
-	    $cmd='sed -i ".sed_bak" -e "s/^\(Path=.*\)$/#\1/g" '."$lib_conf_path >& 2"; # do the work
+	    $cmd='sed -i".sed_bak" -e "s/^\(Path=.*\)$/#\1/g" '."$lib_conf_path >& 2"; # do the work
 	    # print("pathcmd:$cmd\n");exit;
 	    qx($cmd);
 	    if ( $in_ts != $out_ts ) { # i just want not equal, because index's are special.
@@ -612,8 +619,12 @@ sub do_work
 	    my $suf="";
 	    if ( -f "$out_p" ){
 		$out_ts=mod_time("$out_p");
-		my $dt = DateTime->from_epoch(epoch => $out_ts);
-		$suf=".".$dt->ymd;
+		# If DateTime were available(and universal :P stupid windows ) this would be the more correct way.
+		#my $dt = DateTime->from_epoch(epoch => $out_ts);
+		#$suf=".".$dt->ymd;
+		#ex of ymd function say $dt->ymd;# 1987-12-18
+		$suf=timestamp_from_epoc($out_ts,'-');
+		$suf=substr($suf,0,10);
 	    }
 	    $cp_flags=$cp_flags." --suffix=$suf.bak"
 	}
