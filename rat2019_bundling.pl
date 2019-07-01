@@ -26,7 +26,7 @@ use Headfile;
 use pipeline_utilities;
 #use civm_simple_util qw(load_file_to_array get_engine_constants_path printd whoami whowasi debugloc $debug_val $debug_locator);# debug_val debug_locator);
 #use civm_simple_util qw(mod_time load_file_to_array sleep_with_countdown $debug_val $debug_locator);
-use civm_simple_util qw(file_mod_extreme find_file_by_pattern load_file_to_array write_array_to_file);
+use civm_simple_util qw(trim file_mod_extreme find_file_by_pattern load_file_to_array write_array_to_file);
 
 # for each unit of work, skip ahead
 # once data is "right" it can be safely skipped every time.
