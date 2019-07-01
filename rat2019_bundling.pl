@@ -7,6 +7,9 @@
 # 4) bundle up each reasonably divisible part of this library
 # 5) grab setup code
 # 6) bundle everything together in one zip.
+# Horray! We're almost functionized at this point with the "critical" vars
+# being set at the front of the script. If those were abstracted into a file
+# to start with, we could make this a generic "LibBundler.pl"
 #
 use strict;
 use warnings;
@@ -26,7 +29,9 @@ use pipeline_utilities;
 use civm_simple_util qw(file_mod_extreme find_file_by_pattern load_file_to_array write_array_to_file);
 
 # for each unit of work, skip ahead
-my $test_mode=0;
+# once data is "right" it can be safely skipped every time.
+# That is 8,
+my $test_mode=8;
 # stage stop, as listed in header commnet
 # choices, end, convert_tree, reduced_tree
 # test_mode must be  <=5 for convert and <=2 for reduce
@@ -55,7 +60,10 @@ my $setup_components="Setup"; # dir in bundle_setup we stuff components.
 #  /Volumes/l$/Other/Installs/
 # S is civmbigdata Software(mounted to S:/)
 my $installer_store="/S/InteractivePublishing";
-# this is a special keyword to capture the right installer., could also specify the proper folder.
+# this refers to our "cold storage" location for the different versions of the applicaiton.
+# We could use "latest", a special keyword to capture the newest installer,
+# its will be literally the latest file in the installer store, so it's not 100% reliable.
+# Here we're specify the proper folder directly.
 my $installer_version="b15";
 
 # where our result complete bundle will end up.
@@ -71,6 +79,9 @@ $sv{'LibItemNumber'}="CIVM-17003";
 $sv{'LibIndex'}="$branch_name";
 $sv{'WinAppBundleName'}="AtlasViewer-0.4.0-e88a129";#-da2b5d2"; #-win-amd64_20171107
 $sv{'WinProgramVersion'}="20190624";#"20171107";
+$sv{'WinExtensionBundle'}="Slicer-4.9.0-2018-07-12-win-amd64_extensions";
+$sv{'MacExtensionBundle'}="Slicer-4.9.0-2018-07-12-macosx-amd64_extensions";
+
 
 ###
 # Look at Source, get version and lib name so we can set variable dest
@@ -292,7 +303,6 @@ foreach (@bundles) {
     #$cmd="zip $testing -o -v -FS -r $output_path $_";
     # git-sdk-able zip command
     $cmd="zip $testing -o -v -FS -r $output_path $_";
-
     print("cd $converted_tree;$cmd;cd $code_dir;\n");# show command to user
     run_and_watch($cmd) if $test_mode<=6;
     chdir $code_dir;
@@ -303,7 +313,7 @@ foreach (@bundles) {
 # bundling - non-versioned portions
 if ( 0 ) { # TEMPORARILY DISABLED BECAUSE WE DONT HAVE EXAMPLES SET UP
 $output_path=File::Spec->catfile($bundle_dest,'Data',$sv{'LibItemNumber'}."_examples.zip");
-print("Bundling! -> $output_path\n") if $test_mode<=6;
+print("Bundling! -> $output_path\n") if $test_mode<=7;
 chdir $converted_tree;
 $cmd="zip -o -v -FS -r $output_path 000ExternalAtlasesBySpecies ExternalAtlases";
 print("cd $converted_tree;$cmd;cd $code_dir;\n");# show command to user
@@ -314,7 +324,7 @@ run_and_watch($cmd) if $test_mode<=7;
 # bundling add setup code.
 # omit git directories or change the fetch command to a shallow clone?
 # Lets do things the "cool way" Lets use rsync to omit git directories.
-$cmd="rsync -axv --exclude '*ffs_db' --exclude 'example_*' --exclude '.git*' --exclude '*.md' --exclude '*~' $bundle_setup/ $bundle_dest";
+$cmd="rsync -axv --exclude '*ffs_db' --exclude 'test*' --exclude 'prototype*' --exclude 'example_*' --exclude '.git*' --exclude '*.bak' --exclude '*.md' --exclude '*~' $bundle_setup/ $bundle_dest";
 print($cmd."\n");
 run_and_watch($cmd) if $test_mode<=8;
 #
@@ -339,6 +349,7 @@ if ( $installer_version eq "latest") {
     $installer_version=$td[-1];
     print("Latest:$installer_version\n");
 }
+    #print("getting latest from $av_store\n");
 my $installer_dir=File::Spec->catdir(($installer_store,"AtlasViewer",$installer_version));
 $cmd="rsync -axv $installer_dir $bundle_app_support";
 print($cmd."\n");
