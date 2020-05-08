@@ -31,11 +31,11 @@ use civm_simple_util qw(trim file_mod_extreme find_file_by_pattern load_file_to_
 # for each unit of work, skip ahead
 # once data is "right" it can be safely skipped every time.
 # That is 8,
-my $test_mode=8;
+my $test_mode=0;
 # stage stop, as listed in header commnet
 # choices, end, convert_tree, reduced_tree
 # test_mode must be  <=5 for convert and <=2 for reduce
-my $stage_stop="end";
+my $stage_stop="reduced_tree";
 # the source tree is where our item lives
 # when running from mac land in the old days "/Volumes/DataLibraries";
 my $source_tree="/D/Libraries";
