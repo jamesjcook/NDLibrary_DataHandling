@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#
 # an automatic data cleaner operating in stages
 # Taking an item in source_tree(source_tree, branch_name)
 # 1) make a new tree (reduced_tree) with only that item and branches/leaves it relies on.
@@ -22,7 +22,7 @@ use Scalar::Util qw(openhandle);
 
 use Env qw(RADISH_PERL_LIB );
 use lib split(':',$RADISH_PERL_LIB);
-use Headfile;
+#use Headfile;
 use pipeline_utilities;
 #use civm_simple_util qw(load_file_to_array get_engine_constants_path printd whoami whowasi debugloc $debug_val $debug_locator);# debug_val debug_locator);
 #use civm_simple_util qw(mod_time load_file_to_array sleep_with_countdown $debug_val $debug_locator);
@@ -43,64 +43,76 @@ use civm_simple_util qw(trim file_mod_extreme find_file_by_pattern load_file_to_
 # 10 - clean out old app ver's and installers
 # 11 - add settings extensions, qt5 patch, 7z to setup assembly, and rsync assembly to final bundle folder
 # 12 - build the final complete zip file
-my $test_mode=1;
+# my $test_mode=1;
+
 # stage stop, as listed in header commnet
 # choices, end, convert_tree, reduced_tree
 # test_mode must be  <=5 for convert and <=2 for reduce
-my $stage_stop="end";
+#my $stage_stop="end";
+
 # the source tree is where our item lives
 # when running from mac land in the old days "/Volumes/DataLibraries";
-my $source_tree="/D/Libraries";
+#my $source_tree="/D/Libraries";
 
 # this is a branch or the input tree
-my $branch_name="040Human_Brainstem";
-my $source_branch="$source_tree/$branch_name";
+#my $branch_name="040Human_Brainstem";
+#my $source_branch="$source_tree/$branch_name";
 
 # this is a forest of trees which are not related and should not affect one another.
 # We're trying to grab a single branch of our input tree, and make a new tree in this forest for just that branch.
 # There are other items in this forest which should not be affected by our work here.
 # when running from mac land in the old days "/Volumes/DataLibraries/_AppStreamLibraries";
-my $dest_forest="/D/Dev/AppStreamLibraries";
+#my $dest_forest="/D/Dev/AppStreamLibraries";
 
 # One thing in our forest is this bundle setup stuff.
 # when running from mac land in the old days "/Volumes/DataLibraries/_AppStreamSupport/BundleSetup";
-my $bundle_setup="/D/Dev/AppStreamSupport/BundleSetup";
+#my $bundle_setup="/D/Dev/AppStreamSupport/BundleSetup";
+
 # setup_comonents formerly Setup
-my $setup_components="Components"; # dir in bundle_setup we stuff components.
+#my $setup_components="Components"; # dir in bundle_setup we stuff components.
 
 # One thing in our forest is this exec_cache.
 # when running from mac land in the old days "/Volumes/DataLibraries/_Software/";
 #  /Volumes/l$/Other/Installs/
 # S is civmbigdata Software(mounted to S:/)
 # Big data is still dead :(
-my $installer_store="/D/Dev/InstallerStore";
+#my $installer_store="/D/Dev/InstallerStore";
+
 # this refers to our "cold storage" location for the different versions of the applicaiton.
 # We could use "latest", a special keyword to capture the newest installer,
 # its will be literally the latest file in the installer store, so it's not 100% reliable.
 # Here we're specify the proper folder directly.
-my $installer_version="b16";
+#my $installer_version="b16";
 
 # where our result complete bundle will end up.
 # when running from mac land in the old days "/Volumes/DataLibraries/_AppStreamBundles";
-my $bundle_forest="/D/Dev/AppStreamBundles";
+#my $bundle_forest="/D/Dev/AppStreamBundles";
 
 # Seven z settings, this could stand improvement later.
-my $sevenZname="7z1805-extra";
-my $sevenZdir=File::Spec->catdir($installer_store,$sevenZname);
+#my $sevenZname="7z1805-extra";
+#my $sevenZdir=File::Spec->catdir($installer_store,$sevenZname);
 
 ###
 # settings for bundle installer.
 # used at very end.
-my %sv;
-$sv{'LibItemNumber'}="CIVM-17002";
-$sv{'LibIndex'}="$branch_name";
-$sv{'WinAppBundleName'}="AtlasViewer-0.4.0-e88a129";#-win-amd64_20171107
-$sv{'WinProgramVersion'}="20200506";
-$sv{'WinExtensionBundle'}="Slicer-4.9.0-2018-07-12-win-amd64_extensions";
-$sv{'MacExtensionBundle'}="Slicer-4.9.0-2018-07-12-macosx-amd64_extensions";
-$sv{'sevenZname'}=$sevenZname;
+#my %sv;
+#$sv{'LibItemNumber'}="CIVM-17002";
+#$sv{'LibIndex'}="$branch_name";
+#$sv{'WinAppBundleName'}="AtlasViewer-0.4.0-e88a129";#-win-amd64_20171107
+#$sv{'WinProgramVersion'}="20200506";
+#$sv{'WinExtensionBundle'}="Slicer-4.9.0-2018-07-12-win-amd64_extensions";
+#$sv{'MacExtensionBundle'}="Slicer-4.9.0-2018-07-12-macosx-amd64_extensions";
+#$sv{'sevenZname'}=$sevenZname;
 
-
+sub LibBundle {
+    my ($stage_stop,$stage_end,$test_mode,
+    $source_tree,$source_branch,$branch_name,
+    $dest_forest,
+    $bundle_forest,
+    $bundle_setup,$setup_components,$installer_store,$installer_version,
+    $sevenZdir,$sevenZname,
+    $sv_r)=@_;
+    my %sv=%$sv_r;
 die "stage_stop var set wrongly, should be reduced_tree|convert_tree|end" if $stage_stop !~ /end|convert_tree|reduced_tree/x;
 
 ###
@@ -499,11 +511,12 @@ if ( -e $setup_vars ) {
 } else {
     print("No setup_vars at $setup_vars!, Will not create new final zip!");
 }
-
+}
 #
 
 exit;
 sub run_cmd {
+    my ($cmd)=@_;
     print("start $cmd\n");die;
     return run_and_watch(@_,"\t");
 }
