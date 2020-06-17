@@ -39,7 +39,7 @@ my $source_tree="/D/Libraries";
 
 # this is a branch or the input tree
 my $branch_name="010Rat_Brain";
-my $source_branch="$source_tree/$branch_name";
+#my $source_branch="$source_tree/$branch_name";
 
 # this is a forest of trees which are not related and should not affect one another.
 # We're trying to grab a single branch of our input tree, and make a new tree in this forest for just that branch.
@@ -90,6 +90,12 @@ $sv{'WinExtensionBundle'}="Slicer-4.9.0-2018-07-12-win-amd64_extensions";
 $sv{'MacExtensionBundle'}="Slicer-4.9.0-2018-07-12-macosx-amd64_extensions";
 $sv{'sevenZname'}=$sevenZname;
 
-LibBundler($,\%sv);
+LibBundler($source_tree,$branch_name,
+    $dest_forest,
+    $bundle_forest,
+    $bundle_setup,$setup_components,$installer_store,$installer_version,
+    $sevenZdir,$sevenZname,
+    \%sv,
+    $test_mode,$stage_stop);
 
 exit 0;

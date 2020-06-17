@@ -11,9 +11,12 @@
 # being set at the front of the script. If those were abstracted into a file
 # to start with, we could make this a generic "LibBundler.pl"
 #
+package LibBundler;
+
 use strict;
 use warnings;
 
+use English;
 use Carp;
 use Cwd;
 use File::Path qw(make_path);
@@ -28,6 +31,14 @@ use pipeline_utilities;
 #use civm_simple_util qw(mod_time load_file_to_array sleep_with_countdown $debug_val $debug_locator);
 use civm_simple_util qw(trim file_mod_extreme find_file_by_pattern load_file_to_array write_array_to_file sleep_with_countdown);
 
+BEGIN {
+    use Exporter;
+    our @ISA = qw(Exporter); # perl critic wants this replaced with use base; not sure why yet.
+    #@EXPORT_OK is prefered, as it markes okay to export, HOWEVER our code is dumb and wants all the pipe utils!
+    our @EXPORT_ok = qw(
+    LibBundler
+    );
+}
 # test_mode is for each unit of work, skip ahead to a particular unit
 # once data is "right" it can be safely skipped every time.
 # That is 8,
@@ -105,15 +116,19 @@ use civm_simple_util qw(trim file_mod_extreme find_file_by_pattern load_file_to_
 #$sv{'sevenZname'}=$sevenZname;
 
 sub LibBundle {
-    my ($stage_stop,$stage_end,$test_mode,
-    $source_tree,$source_branch,$branch_name,
+    my (
+    $source_tree,$branch_name,
     $dest_forest,
     $bundle_forest,
     $bundle_setup,$setup_components,$installer_store,$installer_version,
     $sevenZdir,$sevenZname,
-    $sv_r)=@_;
+    $sv_r,$test_mode,$stage_stop)=@_;
     my %sv=%$sv_r;
+
 die "stage_stop var set wrongly, should be reduced_tree|convert_tree|end" if $stage_stop !~ /end|convert_tree|reduced_tree/x;
+
+die 'hello';
+my $source_branch="$source_tree/$branch_name";
 
 ###
 # Look at Source, get version and lib name so we can set variable dest
