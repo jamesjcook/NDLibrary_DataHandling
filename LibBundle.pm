@@ -35,7 +35,7 @@ BEGIN {
     use Exporter;
     our @ISA = qw(Exporter); # perl critic wants this replaced with use base; not sure why yet.
     #@EXPORT_OK is prefered, as it markes okay to export, HOWEVER our code is dumb and wants all the pipe utils!
-    our @EXPORT_ok = qw(
+    our @EXPORT_OK = qw(
     LibBundle
     );
 }
@@ -127,7 +127,6 @@ sub LibBundle {
 
 die "stage_stop var set wrongly, should be reduced_tree|convert_tree|end" if $stage_stop !~ /end|convert_tree|reduced_tree/x;
 
-die 'hello';
 my $source_branch="$source_tree/$branch_name";
 
 ###
@@ -170,7 +169,7 @@ my ($ptxt,$version,$LibName);
     #print("LibName is $LibName\n");
     #print("Version is $version\n");
 }
-#die "L:$LibName, V:$version";
+# die "L:$LibName, V:$version";
 ###
 
 
@@ -188,8 +187,9 @@ my $conv_source="";#/Volumes/DataLibraries/_AppStreamLibraries/DataLibraries_mou
 my @sdirs = File::Spec->splitdir( $source_branch );
 if ($LibName eq "" ){
     $LibName=$sdirs[-1];
+    print("LibName is set to defacto value \"$LibName\"\n");
 } else {
-    #print("LibName is set to $LibName, defacto alt would be $sdirs[-1]\n");
+    print("LibName is set to $LibName, defacto alt would be $sdirs[-1]\n");
 }
 my $reduced_tree="$dest_forest/${LibName}_1r${version}";
 my $dest_branch="$reduced_tree/$sdirs[-1]";
@@ -214,7 +214,7 @@ my $bundle_dest="$dest_forest/${LibName}_3bundle${version}_nhdr";
 ###
 
 ####
-# BEGIN WORK.
+# Feedback before BEGIN
 ####
 print("Outputs will be based in $dest_forest\n".
       #"reducing $source_branch -> $dest_branch\n".
@@ -224,6 +224,17 @@ print("Outputs will be based in $dest_forest\n".
       #"will bundle $converted_tree -> $bundle_dest\n");
       "to be bundled into $bundle_dest\n");
 
+my $response=user_prompt('Continue?(N\y)');
+while($response !~ /[yn]/ix) {
+    $response=user_prompt('Continue?(N\y)');
+}
+if ($response !~ /[y]/ix){
+    die "User requested stop";
+}
+
+####
+# BEGIN WORK.
+####
 ###
 # Perform reduciton using LibManager, with high debugging.
 # WARNING LibManager is DESTRUCTIVE of the dest!
@@ -529,7 +540,6 @@ if ( -e $setup_vars ) {
 }
 #
 
-exit;
 sub run_cmd {
     my ($cmd)=@_;
     print("start $cmd\n");die;
