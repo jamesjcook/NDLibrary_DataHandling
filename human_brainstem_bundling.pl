@@ -348,7 +348,7 @@ chdir $code_dir;
 if( ! -e $setup_assembly ) {
     $cmd="(cd $bundle_dest && git clone --recurse-submodules $bundle_setup $setup_assembly)";
 } else {
-    $cmd="(cd $setup_assembly && git pull && git submodule update --init --recursive)";
+    $cmd="(cd $setup_assembly && git stash && git pull && git stash pop; git submodule update --init --recursive)";
 }
 print($cmd."\n");
 run_and_watch($cmd) if $test_mode<=8;
