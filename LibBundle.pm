@@ -11,7 +11,7 @@
 # being set at the front of the script. If those were abstracted into a file
 # to start with, we could make this a generic "LibBundler.pl"
 #
-package LibBundler;
+package LibBundle;
 
 use strict;
 use warnings;
@@ -36,7 +36,7 @@ BEGIN {
     our @ISA = qw(Exporter); # perl critic wants this replaced with use base; not sure why yet.
     #@EXPORT_OK is prefered, as it markes okay to export, HOWEVER our code is dumb and wants all the pipe utils!
     our @EXPORT_ok = qw(
-    LibBundler
+    LibBundle
     );
 }
 # test_mode is for each unit of work, skip ahead to a particular unit
@@ -116,13 +116,13 @@ BEGIN {
 #$sv{'sevenZname'}=$sevenZname;
 
 sub LibBundle {
-    my (
-    $source_tree,$branch_name,
+    my ($source_tree,$branch_name,
     $dest_forest,
     $bundle_forest,
     $bundle_setup,$setup_components,$installer_store,$installer_version,
     $sevenZdir,$sevenZname,
-    $sv_r,$test_mode,$stage_stop)=@_;
+    $sv_r,
+    $test_mode,$stage_stop)=@_;
     my %sv=%$sv_r;
 
 die "stage_stop var set wrongly, should be reduced_tree|convert_tree|end" if $stage_stop !~ /end|convert_tree|reduced_tree/x;

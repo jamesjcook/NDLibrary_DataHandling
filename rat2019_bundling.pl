@@ -8,7 +8,7 @@ use File::Basename;
 use Cwd qw(abs_path);
 use lib dirname(abs_path($0));
 
-use LibBundler qw(LibBundler);
+use LibBundle qw(LibBundle);
 
 
 # test_mode is for each unit of work, skip ahead to a particular unit
@@ -90,7 +90,7 @@ $sv{'WinExtensionBundle'}="Slicer-4.9.0-2018-07-12-win-amd64_extensions";
 $sv{'MacExtensionBundle'}="Slicer-4.9.0-2018-07-12-macosx-amd64_extensions";
 $sv{'sevenZname'}=$sevenZname;
 
-LibBundler($source_tree,$branch_name,
+LibBundle($source_tree,$branch_name,
     $dest_forest,
     $bundle_forest,
     $bundle_setup,$setup_components,$installer_store,$installer_version,
