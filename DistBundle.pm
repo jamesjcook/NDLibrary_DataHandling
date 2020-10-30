@@ -62,11 +62,28 @@ sub dist_bundle {
     #dist_simplify();
     dist_add_viewer($o{"viewer_code"},$dist_lib);
     dist_add_setup($o{"bundle_setup"},$dist_lib);
+    dist_mac_patch($o{"mac_appify"},File::Spec->catdir($dist_lib,"Components","utils"));
     #my($sevenZdir,$sevenZname,$bundle_app_support)=@_
     #my $compressor_path=File::Spec->catdir($o{"sevenZdir"}.$o{"sevenZname"});
     #dist_add_decompressor($compressor_path,$dist_lib);
     dist_zip($dist_lib,$dest_zip);
     print("Done!");
+}
+
+sub git_remote_url {
+    my($local_repo)=@_;
+    my @remote_info=run_and_watch("cd $local_repo && git remote get-url origin");
+    chomp(@remote_info);
+    @remote_info=grep /[@]/, @remote_info;
+    my ($rem_url) = @remote_info;
+    return defined $rem_url ? $rem_url : "";
+}
+
+sub git_set_origin {
+    my($local_repo,$new_origin)=@_;
+    #die "Url update $local_repo with $new_origin";
+    run_and_watch("cd $local_repo && git remote set-url origin $new_origin");
+    return;
 }
 
 sub dist_add_viewer {
@@ -77,10 +94,17 @@ sub dist_add_viewer {
     if( ! -e $view_dest ) {
         $cmd="(cd $bundle_dest && git clone --recurse-submodules $view_src $view_dest)";
     } else {
-        $cmd="(cd $view_dest && git stash && git pull && git stash pop; git submodule update --init --recursive)";
+        $cmd="(cd $view_dest && git stash && git pull $view_src && git stash pop; git submodule update --init --recursive)";
     }
     print($cmd."\n");
     run_and_watch($cmd);
+    # detect if code is local, or remote.
+    # if we're local, try to get more remore code, so we could do web udpates if so inclined.
+    my $original_remote=git_remote_url($view_src);
+    my $cur_remote=git_remote_url($view_dest);
+    if($original_remote ne $cur_remote){
+        git_set_origin($view_dest,$original_remote);
+    }
 }
 
 sub dist_add_setup {
@@ -108,7 +132,14 @@ sub dist_add_setup {
     #$cmd="rsync -axv --exclude '*ffs_db' --exclude 'test*' --exclude 'prototype*' --exclude 'example*' --exclude '.git*' --exclude '*.bak'  --exclude '*.last' --exclude '*.md' --exclude '*~' $setup_assembly/ $bundle_dest/";
     #print($cmd."\n");die "testing";
     #run_and_watch($cmd);
-    slop_sync($setup_assembly, $bundle_dest,qw( *ffs_db test* prototype* example* .git* *.bak  *.last *.md *~));
+    slop_sync($setup_assembly, $bundle_dest,qw( *ffs_db test* prototype* example* .git* *.bak  *.last *.md *~ *pyc __pycache__));
+}
+
+sub dist_mac_patch {
+    my ($file, $dest_dir)=@_;
+    my $ne=basename $file;
+    my $df=File::Spec->catfile($dest_dir,$ne);
+    run_on_update("cp -p ".$file." ".$df,[$file],[$df]);
 }
 
 sub dist_add_decompressor {
@@ -149,6 +180,68 @@ sub slop_sync {
     run_and_watch($cmd);
 }
 
+sub dist_setup_vars{
+    my ($sv_r,$dist_lib)=@_;
+    return;
+    my($lib_name,$bundle_dest,$bundle_forest,$test_mode,$converted_tree,$code_dir,$output_path,$version);
+    my %sv=%$sv_r;
+    #
+    # encode sv hash to the setup vars file.
+    #
+    my $setup_assembly=$dist_lib."_setup_staging";
+    my $setup_vars=File::Spec->catfile($setup_assembly,"setup_vars.txt");
+    # setup vars are a special name=value name2=value2 ENDECHO single line text file for the installer script.
+    if ( !-e $setup_vars ) {
+        print("No setup_vars at $setup_vars!, Will not create new final zip!");
+        return;
+    }
+    my @slines=();
+    my $setup_vars_modified=0;
+    load_file_to_array($setup_vars,\@slines);
+    if( scalar(@slines)>1) {
+        warn("extra lines in the setup vars");
+    }
+    if (scalar(@slines)==0) {
+        die "Error reading setup vars proto";
+    }
+    $output_path=File::Spec->catfile($bundle_forest,"$sv{LibItemNumber}${version}.zip");
+    my @vars=split(' ',$slines[0]);
+    for(my $vn=0;$vn<scalar(@vars);$vn++) {
+        my ($na,$val)=split("=",$vars[$vn]);
+        if ( defined $na  ) {
+            if (defined $val  ) {
+                if ( exists($sv{$na}) ) {
+                    if ( $val ne $sv{$na}) {
+                        print("Updating $na with $sv{$na} \n");
+                        $val=$sv{$na};
+                        $setup_vars_modified=1;
+                    }
+                    delete $sv{$na};
+                }
+                $vars[$vn]="$na=$val";
+            } else {
+                $vars[$vn]="$na";
+            }
+        }
+        # Removing the end marker in case there are new vars to add.
+        if ( $vars[$vn] eq 'ENDECHO' ) {
+            $vars[$vn]=""; }
+    }
+    # add any new keys (which we know there are by clearing existing as we go)
+    my @rem_k=keys %sv;
+    for(my $vn=0;$vn<scalar(@rem_k);$vn++) {
+        print("Adding new key $rem_k[$vn]\n");
+        push(@vars,"$rem_k[$vn]=$sv{$rem_k[$vn]}");
+        $setup_vars_modified=1;
+    }
+    push(@vars," ENDECHO");
+    if ($setup_vars_modified == 1) {
+        $slines[0]=join(' ',@vars);
+        write_array_to_file($setup_vars,\@slines);
+    }
+
+}
+
 sub dist_zip {
     my($dist_lib,$dest_zip)=@_;
     my $cmd;
@@ -176,6 +269,9 @@ sub dist_zip {
         #print("pushd \$PWD;cd $dist_lib;$cmd;popd;\n");# show command to user
         $cmd='pushd $PWD;'.$cmd.';popd';
     } else {
+        # in our win env we do some extra hackadashery because we're hardcoding use of an msys2 zip.
+        # git-bash which we routinely run our scripts on under is actualy mingw64, eg inerpolated sys calls
+        # we're running msys zip becuase its not interpolated system calls... or so we're led to believe
         ($dest_zip)=run_and_watch("cygpath -m '$dest_zip'");
         chomp($dest_zip);
         $cmd="$ZIP $testing -o -v -FS -r $dest_zip *";
@@ -186,7 +282,6 @@ sub dist_zip {
         $cmd='d=$PWD; pushd $PWD; cd '.$dist_lib.'; $(cygpath -m $d/'.$tmp_scr.'); popd';
     }
     print($cmd."\n");
-    die "testing";
     run_and_watch($cmd);
 }
 

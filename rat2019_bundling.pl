@@ -8,6 +8,7 @@ use File::Basename;
 use Cwd qw(abs_path);
 use lib dirname(abs_path($0));
 
+
 use LibBundle qw(LibBundle);
 
 
@@ -31,7 +32,7 @@ my $test_mode=0;
 # stage stop, as listed in header commnet
 # choices, end, convert_tree, reduced_tree
 # test_mode must be  <=5 for convert and <=2 for reduce
-my $stage_stop="reduced_tree";
+my $stage_stop="end";
 
 # the source tree is where our item lives
 # when running from mac land in the old days "/Volumes/DataLibraries";
