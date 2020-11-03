@@ -133,6 +133,7 @@ sub dist_add_setup {
     #print($cmd."\n");die "testing";
     #run_and_watch($cmd);
     slop_sync($setup_assembly, $bundle_dest,qw( *ffs_db test* prototype* example* *.log *.lnk .git* *.bak  *.last *.md *~ *pyc __pycache__));
+    folder_clean($bundle_dest,qw( *.log *.lnk *~ *pyc __pycache__));
 }
 
 sub dist_mac_patch {
@@ -145,11 +146,11 @@ sub dist_mac_patch {
 sub dist_add_decompressor {
     my($sevenZdir,$sevenZname,$bundle_app_support)=@_;
     my $cmd;
-###
-# bundling - get 7z
-$cmd="rsync -axv $sevenZdir/ ".File::Spec->catdir($bundle_app_support,"$sevenZname")."/";
-print($cmd."\n");
-run_and_watch($cmd);
+    ###
+    # bundling - get 7z
+    $cmd="rsync -axv $sevenZdir/ ".File::Spec->catdir($bundle_app_support,"$sevenZname")."/";
+    print($cmd."\n");
+    run_and_watch($cmd);
 }
 
 sub slop_sync {
@@ -169,6 +170,22 @@ sub slop_sync {
     my $excluded='-name "'.join('" -or -name "',@exclusions).'"';
     #$cmd="find $src $excluded -exec rm {} \+";
     $cmd="find $src $excluded |sed 's|".$src."|".$dst."|'";
+    print($cmd."\n");
+    my @components = run_and_watch($cmd);
+    chomp(@components);
+    if(! scalar(@components)) {
+        return;
+    }
+    $cmd="rm -rf ".join(" ",@components);
+    print($cmd."\n");
+    run_and_watch($cmd);
+}
+
+sub folder_clean {
+    my ($dst, @exclusions)=@_;
+    # clean bits of stuff out of a folder.
+    my $excluded='-name "'.join('" -or -name "',@exclusions).'"';
+    my $cmd="find $dst $excluded";
     print($cmd."\n");
     my @components = run_and_watch($cmd);
     chomp(@components);
