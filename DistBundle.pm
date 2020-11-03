@@ -132,7 +132,7 @@ sub dist_add_setup {
     #$cmd="rsync -axv --exclude '*ffs_db' --exclude 'test*' --exclude 'prototype*' --exclude 'example*' --exclude '.git*' --exclude '*.bak'  --exclude '*.last' --exclude '*.md' --exclude '*~' $setup_assembly/ $bundle_dest/";
     #print($cmd."\n");die "testing";
     #run_and_watch($cmd);
-    slop_sync($setup_assembly, $bundle_dest,qw( *ffs_db test* prototype* example* *.log .git* *.bak  *.last *.md *~ *pyc __pycache__));
+    slop_sync($setup_assembly, $bundle_dest,qw( *ffs_db test* prototype* example* *.log *.lnk .git* *.bak  *.last *.md *~ *pyc __pycache__));
 }
 
 sub dist_mac_patch {
