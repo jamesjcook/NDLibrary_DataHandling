@@ -29,6 +29,7 @@ $opts{"sevenZname"}="7z1805-extra";
 $opts{"sevenZdir"}=File::Spec->catdir($opts{"installer_store"},$opts{"sevenZname"});
 # local viewer setup...should we use remote here?
 $opts{"viewer_code"}=File::Spec->catdir("/h/code","ndLibrarySupport");
+$opts{"setup_doc_suppliments"}=qw();
 
 
 
@@ -43,7 +44,7 @@ if($dist_root =~ m/:/){
     ($dist_root)=run_and_watch("cygpath -u '$dist_root'");
     chomp($dist_root);
 }
-my $dist_lib=File::Spec->catdir($dist_root,"RatBrain_v2020-10-29");
-my $dest_zip=File::Spec->catfile($dist_root,"RatBrain_v2020-10-29.zip");
+my $dist_lib=File::Spec->catdir($dist_root,"RatBrain_v2021-02-23");
+my $dest_zip=File::Spec->catfile($dist_root,"RatBrain_v2021-02-23.zip");
 
 dist_bundle(\%opts,$dist_lib,$dest_zip)
