@@ -56,12 +56,14 @@ if(!scalar(@ziploc) || ! -e $ziploc[0]){
 sub dist_bundle {
     my ($or,$dist_lib,$dest_zip) = @_;
     my %o=%$or;
+    if(! exists $o{'setup_doc_suppliments'}){
+        $o{'setup_doc_suppliments'}=qw(); }
     #Data::Dump::dump(\%o);die;
     if(! defined $dest_zip || $dest_zip eq "") {
         $dest_zip=$dist_lib.".zip"; }
     #dist_simplify();
     dist_add_viewer($o{"viewer_code"},$dist_lib);
-    dist_add_setup($o{"bundle_setup"},$dist_lib);
+    dist_add_setup($o{"bundle_setup"},$dist_lib, $o{'setup_doc_suppliments'});
     dist_mac_patch($o{"mac_appify"},File::Spec->catdir($dist_lib,"Components","utils"));
     #my($sevenZdir,$sevenZname,$bundle_app_support)=@_
     #my $compressor_path=File::Spec->catdir($o{"sevenZdir"}.$o{"sevenZname"});
@@ -108,7 +110,7 @@ sub dist_add_viewer {
 }
 
 sub dist_add_setup {
-    my($bundle_setup,$bundle_dest)=@_;
+    my($bundle_setup,$bundle_dest,@approved_sup)=@_;
     my $cmd;
     # we stage the setup code because it doesnt need any git linkage back,
     # setup updates are well out of spec.
@@ -129,11 +131,33 @@ sub dist_add_setup {
     # insert the setup assembly into the bundle dir.
     # omit git directories or change the fetch command to a shallow clone?
     # Lets do things the "cool way" Lets use rsync to omit git directories.
+    #WHOOPS< rsync is PITA on winblows.
     #$cmd="rsync -axv --exclude '*ffs_db' --exclude 'test*' --exclude 'prototype*' --exclude 'example*' --exclude '.git*' --exclude '*.bak'  --exclude '*.last' --exclude '*.md' --exclude '*~' $setup_assembly/ $bundle_dest/";
     #print($cmd."\n");die "testing";
     #run_and_watch($cmd);
     slop_sync($setup_assembly, $bundle_dest,qw( *ffs_db test* prototype* example* *.log *.lnk .git* *.bak  *.last *.md *~ *pyc __pycache__));
     folder_clean($bundle_dest,qw( *.log *.lnk *~ *pyc __pycache__));
+
+    ###
+    # Remove any README_X or HELP_X files UNLESS they match approved supplimental material.
+    my @supplimental=find_file_by_pattern($bundle_dest,"(README|HELP)_.*[.]txt");
+    my @removables;
+    if(scalar(@approved_sup)){
+        my $a_sup_pat=join("|",@approved_sup);
+        @removables=grep !/$a_sup_pat/x, @supplimental;
+    } else {
+        @removables=@supplimental;
+    }
+    if(scalar(@removables)){
+        Data::Dump::dump(@removables);
+        print("Removing unused supplimental README/HELP \n\t"
+            .join("\n\t",@removables)."\n");
+        sleep_with_countdown(5);
+        for my $f (@removables) {
+            print("rm $f\n");
+            unlink $f;
+        }
+    }
 }
 
 sub dist_mac_patch {
