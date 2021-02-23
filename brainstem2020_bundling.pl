@@ -28,6 +28,7 @@ $opts{"installer_store"}="/D/Dev/InstallerStore";
 $opts{"sevenZname"}="7z1805-extra";
 $opts{"sevenZdir"}=File::Spec->catdir($opts{"installer_store"},$opts{"sevenZname"});
 $opts{"viewer_code"}=File::Spec->catdir("/h/code","ndLibrarySupport");
+$opts{"setup_doc_suppliments"}=qw(tractography);
 
 
 
