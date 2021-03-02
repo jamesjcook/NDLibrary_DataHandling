@@ -149,7 +149,10 @@ sub dist_add_setup {
         @removables=@supplimental;
     }
     if(scalar(@removables)){
-        Data::Dump::dump(@removables);
+        if($pipeline_utilities::can_dump){
+            Data::Dump::dump(\@removables);
+        }else{
+        display_complex_data_structure(\@removables);}
         print("Removing unused supplimental README/HELP \n\t"
             .join("\n\t",@removables)."\n");
         sleep_with_countdown(5);
